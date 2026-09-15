@@ -123,6 +123,19 @@ bool key_in_report(uint8_t key, const hid_keyboard_report_t *report) {
     return false;
 }
 
+/* True when no modifier and no key is held in the report */
+bool report_is_empty(const hid_keyboard_report_t *report) {
+    if (report->modifier != 0)
+        return false;
+
+    for (int j = 0; j < KEYS_IN_USB_REPORT; j++) {
+        if (report->keycode[j] != 0)
+            return false;
+    }
+
+    return true;
+}
+
 /* Check if the current report matches a specific hotkey passed on */
 bool check_specific_hotkey(hotkey_combo_t keypress, const hid_keyboard_report_t *report) {
     /* We expect all modifiers specified to be detected in the report */
@@ -305,6 +318,19 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
 
     extract_kbd_data(raw_report, length, itf, iface, &new_report);
 
+    /* After a swallowed hotkey, keep swallowing until every key is released.
+       Otherwise releasing the modifier first (e.g. Ctrl before Caps Lock) turns
+       the remaining key into a real keypress on the freshly selected output. */
+    if (state->hotkey_release_pending) {
+        static hid_keyboard_report_t empty_report = {0};
+        update_kbd_state(state, &empty_report, itf);
+
+        if (!report_is_empty(&new_report))
+            return;
+
+        state->hotkey_release_pending = false;
+    }
+
     /* Update the keyboard state for this device */
     update_kbd_state(state, &new_report, itf);
 
@@ -321,8 +347,10 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
         hotkey->action_handler(state, &new_report);
 
         /* And pass the key to the output PC if configured to do so. */
-        if (!hotkey->pass_to_os)
+        if (!hotkey->pass_to_os) {
+            state->hotkey_release_pending = true;
             return;
+        }
     }
 
     /* This method will decide if the key gets queued locally or sent through UART */
