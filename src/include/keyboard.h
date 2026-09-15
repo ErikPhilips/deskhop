@@ -40,6 +40,7 @@ void     combine_kbd_states(device_t *, hid_keyboard_report_t *);
  *  Keyboard Report Processing
  *==============================================================================*/
 bool     key_in_report(uint8_t, const hid_keyboard_report_t *);
+bool     report_is_empty(const hid_keyboard_report_t *);
 void     process_consumer_report(uint8_t *, int, uint8_t, hid_interface_t *);
 void     process_keyboard_report(uint8_t *, int, uint8_t, hid_interface_t *);
 void     process_system_report(uint8_t *, int, uint8_t, hid_interface_t *);
