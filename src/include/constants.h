@@ -49,6 +49,8 @@
 #define CONFIG_MODE_TIMEOUT 300000000 // 5 minutes into the future
 #define JITTER_DISTANCE 10
 #define SCREENSAVER_TOGGLE_JITTER 0xFF /* Sent over UART: flip the other board between JITTER and DISABLED */
+#define SCREENSAVER_STATUS_FLAG   0x80 /* Sent over UART: OR'd with a mode, tells the other board what ours is now */
+#define CAPS_BLINK_INTERVAL_US 500000  /* Caps Lock LED half-period while jitter runs on the active output */
 #define MOUSE_BOOT_REPORT_LEN 4
 #define MOUSE_ZOOM_SCALING_FACTOR 2
 #define NUM_SCREENS 2
