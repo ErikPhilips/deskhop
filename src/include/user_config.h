@@ -127,7 +127,7 @@
  * */
 
 #define SCREENSAVER_A_MODE DISABLED
-#define SCREENSAVER_B_MODE DISABLED
+#define SCREENSAVER_B_MODE JITTER
 
 /**================================================== *
  *
