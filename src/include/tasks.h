@@ -33,5 +33,6 @@ void process_kbd_queue_task(device_t *);
 void process_mouse_queue_task(device_t *);
 void process_uart_tx_task(device_t *);
 void screensaver_task(device_t *);
+mouse_report_t *screensaver_jitter(device_t *);
 void usb_device_task(device_t *);
 void usb_host_task(device_t *);
