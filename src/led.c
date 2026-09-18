@@ -56,10 +56,35 @@ void blink_led(device_t *state) {
     state->last_led_change = time_us_32();
 }
 
+/* Screensaver mode of whichever output is active: ours from config, theirs from the last status message */
+static uint8_t active_output_screensaver_mode(device_t *state) {
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT)
+        return state->config.output[BOARD_ROLE].screensaver.mode;
+
+    return state->remote_screensaver_mode;
+}
+
 void led_sync_task(device_t *state) {
+    static uint32_t last_caps_toggle = 0;
+    static bool caps_blink_on = false;
+
+    /* Acknowledge blinks own the LEDs while they run */
+    if (state->blinks_left > 0)
+        return;
+
     /* Check if keyboard LEDs need to be updated */
     if (state->keyboard_connected) {
         uint8_t desired_leds = state->keyboard_leds_desired[state->active_output];
+
+        /* While jitter runs on the active output, blink Caps Lock as a visible "it's on" indicator */
+        if (active_output_screensaver_mode(state) == JITTER) {
+            if (time_us_32() - last_caps_toggle >= CAPS_BLINK_INTERVAL_US) {
+                caps_blink_on = !caps_blink_on;
+                last_caps_toggle = time_us_32();
+            }
+            desired_leds = caps_blink_on ? (desired_leds | KEYBOARD_LED_CAPSLOCK)
+                                         : (desired_leds & ~KEYBOARD_LED_CAPSLOCK);
+        }
 
         if (state->keyboard_leds_actual[BOARD_ROLE] != desired_leds)
             set_keyboard_leds(desired_leds, state);

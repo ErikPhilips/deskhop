@@ -33,9 +33,16 @@ void _get_border_position(device_t *state, border_size_t *border) {
         border->top = state->pointer_y;
 }
 
+/* Set our own output's screensaver mode and tell the other board, so the board holding
+   the keyboard can reflect it (Caps Lock blink) even when it is not the active output. */
+static void _screensaver_apply_local(device_t *state, uint8_t mode) {
+    state->config.output[BOARD_ROLE].screensaver.mode = mode;
+    send_value(SCREENSAVER_STATUS_FLAG | mode, SCREENSAVER_MSG);
+}
+
 void _screensaver_set(device_t *state, uint8_t value) {
     if (CURRENT_BOARD_IS_ACTIVE_OUTPUT)
-        state->config.output[BOARD_ROLE].screensaver.mode = value;
+        _screensaver_apply_local(state, value);
     else
         send_value(value, SCREENSAVER_MSG);
 };
@@ -145,7 +152,7 @@ void disable_screensaver_hotkey_handler(device_t *state, hid_keyboard_report_t *
 /* Flip this board's own output between JITTER and DISABLED */
 static void _screensaver_toggle_jitter_local(device_t *state) {
     screensaver_t *ss = &state->config.output[BOARD_ROLE].screensaver;
-    ss->mode = (ss->mode == JITTER) ? DISABLED : JITTER;
+    _screensaver_apply_local(state, (ss->mode == JITTER) ? DISABLED : JITTER);
 
     /* Hotkey-driven jitter starts right now and keeps going every tick, no idle wait:
        one nudge immediately so the toggle is visible, then the task takes over. */
@@ -269,10 +276,14 @@ void handle_wipe_config_msg(uart_packet_t *packet, device_t *state) {
 
 /* Update screensaver state after received message */
 void handle_screensaver_msg(uart_packet_t *packet, device_t *state) {
-    if (packet->data[0] == SCREENSAVER_TOGGLE_JITTER)
+    uint8_t value = packet->data[0];
+
+    if (value == SCREENSAVER_TOGGLE_JITTER)
         _screensaver_toggle_jitter_local(state);
+    else if (value & SCREENSAVER_STATUS_FLAG)
+        state->remote_screensaver_mode = value & ~SCREENSAVER_STATUS_FLAG;
     else
-        state->config.output[BOARD_ROLE].screensaver.mode = packet->data[0];
+        _screensaver_apply_local(state, value);
 }
 
 /* Process consumer control message */

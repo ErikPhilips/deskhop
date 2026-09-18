@@ -144,6 +144,7 @@ typedef struct {
     bool relative_mouse;     // True when relative mouse mode is used
     bool gaming_mode;        // True when gaming mode is on (relative passthru + lock)
     bool hotkey_release_pending; // True after a swallowed hotkey until all keys are released
+    uint8_t remote_screensaver_mode; // Last screensaver mode the other board told us it is in
     bool config_mode_active; // True when config mode is active
     bool digitizer_active;   // True when digitizer Win/Mac workaround is active
 
