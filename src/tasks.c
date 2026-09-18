@@ -71,11 +71,16 @@ mouse_report_t *screensaver_pong(device_t *state) {
 }
 
 mouse_report_t *screensaver_jitter(device_t *state) {
-    static mouse_report_t report = {
-        .y = JITTER_DISTANCE,
-        .mode = RELATIVE,
+    static mouse_report_t report = {.mode = RELATIVE};
+
+    /* Eight compass directions; pick one from the clock so each nudge goes somewhere new */
+    static const int8_t dirs[8][2] = {
+        {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
     };
-    report.y = -report.y;
+    uint8_t d = (time_us_32() >> 4) & 7;
+
+    report.x = dirs[d][0] * JITTER_DISTANCE;
+    report.y = dirs[d][1] * JITTER_DISTANCE;
 
     return &report;
 }

@@ -47,7 +47,8 @@
  *==============================================================================*/
 
 #define CONFIG_MODE_TIMEOUT 300000000 // 5 minutes into the future
-#define JITTER_DISTANCE 2
+#define JITTER_DISTANCE 10
+#define SCREENSAVER_TOGGLE_JITTER 0xFF /* Sent over UART: flip the other board between JITTER and DISABLED */
 #define MOUSE_BOOT_REPORT_LEN 4
 #define MOUSE_ZOOM_SCALING_FACTOR 2
 #define NUM_SCREENS 2

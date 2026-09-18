@@ -142,6 +142,21 @@ void disable_screensaver_hotkey_handler(device_t *state, hid_keyboard_report_t *
     _screensaver_set(state, DISABLED);
 }
 
+/* Flip this board's own output between JITTER and DISABLED */
+static void _screensaver_toggle_jitter_local(device_t *state) {
+    screensaver_t *ss = &state->config.output[BOARD_ROLE].screensaver;
+    ss->mode = (ss->mode == JITTER) ? DISABLED : JITTER;
+}
+
+/* Toggle jitter screensaver for whichever output is currently active (Left Alt + Caps Lock).
+   The active board owns the real mode value, so if that is the other board, ask it to flip. */
+void toggle_screensaver_jitter_hotkey_handler(device_t *state, hid_keyboard_report_t *report) {
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT)
+        _screensaver_toggle_jitter_local(state);
+    else
+        send_value(SCREENSAVER_TOGGLE_JITTER, SCREENSAVER_MSG);
+}
+
 /* Put the device into a special configuration mode */
 void config_enable_hotkey_handler(device_t *state, hid_keyboard_report_t *report) {
     /* If config mode is already active, skip this and reboot to return to normal mode */
@@ -247,7 +262,10 @@ void handle_wipe_config_msg(uart_packet_t *packet, device_t *state) {
 
 /* Update screensaver state after received message */
 void handle_screensaver_msg(uart_packet_t *packet, device_t *state) {
-    state->config.output[BOARD_ROLE].screensaver.mode = packet->data[0];
+    if (packet->data[0] == SCREENSAVER_TOGGLE_JITTER)
+        _screensaver_toggle_jitter_local(state);
+    else
+        state->config.output[BOARD_ROLE].screensaver.mode = packet->data[0];
 }
 
 /* Process consumer control message */
