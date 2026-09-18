@@ -146,6 +146,13 @@ void disable_screensaver_hotkey_handler(device_t *state, hid_keyboard_report_t *
 static void _screensaver_toggle_jitter_local(device_t *state) {
     screensaver_t *ss = &state->config.output[BOARD_ROLE].screensaver;
     ss->mode = (ss->mode == JITTER) ? DISABLED : JITTER;
+
+    /* Hotkey-driven jitter starts right now and keeps going every tick, no idle wait:
+       one nudge immediately so the toggle is visible, then the task takes over. */
+    if (ss->mode == JITTER) {
+        ss->idle_time_us = 0;
+        queue_mouse_report(screensaver_jitter(state), state);
+    }
 }
 
 /* Toggle jitter screensaver for whichever output is currently active (Left Alt + Caps Lock).

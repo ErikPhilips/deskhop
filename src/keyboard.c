@@ -131,6 +131,27 @@ bool key_in_report(uint8_t key, const hid_keyboard_report_t *report) {
     return false;
 }
 
+/* The OS already saw the modifier go down before the hotkey completed. For Alt that
+   means a bare Alt tap once it comes back up, which opens the menu bar on Windows. Slip
+   a harmless key press (F24) in under the held Alt so the OS does not treat it as bare. */
+void cancel_bare_alt_tap(const hid_keyboard_report_t *report, device_t *state) {
+    const uint8_t alt_mask = KEYBOARD_MODIFIER_LEFTALT | KEYBOARD_MODIFIER_RIGHTALT;
+
+    if (!(report->modifier & alt_mask))
+        return;
+
+    hid_keyboard_report_t noop_down = {.modifier = report->modifier & alt_mask, .keycode = {HID_KEY_F24}};
+    hid_keyboard_report_t all_up    = {0};
+
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT) {
+        queue_kbd_report(&noop_down, state);
+        queue_kbd_report(&all_up, state);
+    } else {
+        queue_packet((uint8_t *)&noop_down, KEYBOARD_REPORT_MSG, KBD_REPORT_LENGTH);
+        queue_packet((uint8_t *)&all_up, KEYBOARD_REPORT_MSG, KBD_REPORT_LENGTH);
+    }
+}
+
 /* True when no modifier and no key is held in the report */
 bool report_is_empty(const hid_keyboard_report_t *report) {
     if (report->modifier != 0)
@@ -357,6 +378,7 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
         /* And pass the key to the output PC if configured to do so. */
         if (!hotkey->pass_to_os) {
             state->hotkey_release_pending = true;
+            cancel_bare_alt_tap(&new_report, state);
             return;
         }
     }
