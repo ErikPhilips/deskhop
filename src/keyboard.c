@@ -23,6 +23,14 @@ hotkey_combo_t hotkeys[] = {
      .pass_to_os     = false,
      .action_handler = &output_toggle_hotkey_handler},
 
+    /* Left Alt + Caps Lock toggles the jitter screensaver for the active output */
+    {.modifier       = KEYBOARD_MODIFIER_LEFTALT,
+     .keys           = {HID_KEY_CAPS_LOCK},
+     .key_count      = 1,
+     .pass_to_os     = false,
+     .acknowledge    = true,
+     .action_handler = &toggle_screensaver_jitter_hotkey_handler},
+
     /* Pressing right ALT + right CTRL toggles the slow mouse mode */
     {.modifier       = KEYBOARD_MODIFIER_RIGHTALT | KEYBOARD_MODIFIER_RIGHTCTRL,
      .keys           = {},
