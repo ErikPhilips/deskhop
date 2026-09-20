@@ -1324,6 +1324,7 @@ static void process_enumeration(tuh_xfer_t* xfer) {
     }
 
     if (!retry) {
+      failed_count = 0; // next enumeration gets a fresh retry budget
       enum_full_complete();
     }
 
