@@ -47,6 +47,12 @@
  *
  * */
 
+/* EXPERIMENT (pen-test branch): in absolute mode, report cursor position through an
+   external-pen digitizer collection instead of the absolute mouse collection, to see
+   whether Windows maps it across the whole multi-monitor desktop. Buttons and wheel
+   still travel over the relative mouse interface. 1 = on, 0 = stock behaviour. */
+#define PEN_ABSOLUTE_TEST 1
+
 #define HOTKEY_MODIFIER  KEYBOARD_MODIFIER_LEFTCTRL
 #define HOTKEY_TOGGLE    HID_KEY_CAPS_LOCK
 

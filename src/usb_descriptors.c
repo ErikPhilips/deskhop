@@ -41,7 +41,10 @@ uint8_t const *tud_descriptor_device_cb(void) {
 uint8_t const desc_hid_report[] = {TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(REPORT_ID_KEYBOARD)),
                                    TUD_HID_REPORT_DESC_ABS_MOUSE(HID_REPORT_ID(REPORT_ID_MOUSE)),
                                    TUD_HID_REPORT_DESC_CONSUMER_CTRL(HID_REPORT_ID(REPORT_ID_CONSUMER)),
-                                   TUD_HID_REPORT_DESC_SYSTEM_CONTROL(HID_REPORT_ID(REPORT_ID_SYSTEM))
+                                   TUD_HID_REPORT_DESC_SYSTEM_CONTROL(HID_REPORT_ID(REPORT_ID_SYSTEM)),
+#if PEN_ABSOLUTE_TEST
+                                   TUD_HID_REPORT_DESC_DIGITIZER_PEN(HID_REPORT_ID(REPORT_ID_DIGITIZER)),
+#endif
                                    };
 
 uint8_t const desc_hid_report_relmouse[] = {TUD_HID_REPORT_DESC_MOUSEHELP(HID_REPORT_ID(REPORT_ID_RELMOUSE))};
@@ -71,6 +74,34 @@ bool tud_mouse_report(uint8_t mode, uint8_t buttons, int16_t x, int16_t y, int8_
     mouse_report_t report = {.buttons = buttons, .wheel = wheel, .x = x, .y = y, .mode = mode, .pan = pan};
     uint8_t instance = ITF_NUM_HID;
     uint8_t report_id = REPORT_ID_MOUSE;
+
+#if PEN_ABSOLUTE_TEST
+    if (mode == ABSOLUTE) {
+        /* Position goes out as a hovering external pen: in-range set, tip up, no pressure.
+           Flag bits follow the descriptor order: in range, tip switch, eraser, barrel, invert. */
+        static uint8_t last_buttons = 0;
+        touch_report_t pen = {.tip_pressure = 0, .buttons = 0x01, .x = (uint16_t)x, .y = (uint16_t)y};
+
+        if (!tud_hid_n_report(ITF_NUM_HID, REPORT_ID_DIGITIZER, &pen, sizeof(pen)))
+            return false;
+
+        /* Clicks and wheel stay on the relative mouse interface with zero movement, so
+           Windows never sees pen taps. Only bother when something actually changed. */
+        if (buttons != last_buttons || wheel != 0 || pan != 0) {
+            mouse_report_t click = {.buttons = buttons, .wheel = wheel, .pan = pan, .x = 0, .y = 0, .mode = RELATIVE};
+
+            if (!tud_hid_n_ready(ITF_NUM_HID_REL_M))
+                return false; /* Retry the whole report next pass; resending the pen position is harmless */
+
+            if (!tud_hid_n_report(ITF_NUM_HID_REL_M, REPORT_ID_RELMOUSE, &click, sizeof(click)))
+                return false;
+
+            last_buttons = buttons;
+        }
+
+        return true;
+    }
+#endif
 
     if (mode == RELATIVE) {
         instance = ITF_NUM_HID_REL_M;
