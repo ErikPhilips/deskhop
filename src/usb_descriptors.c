@@ -80,15 +80,22 @@ bool tud_mouse_report(uint8_t mode, uint8_t buttons, int16_t x, int16_t y, int8_
         /* Position goes out as a hovering external pen: in-range set, tip up, no pressure.
            Flag bits follow the descriptor order: in range, tip switch, eraser, barrel, invert. */
         static uint8_t last_buttons = 0;
-        touch_report_t pen = {.tip_pressure = 0, .buttons = 0x01, .x = (uint16_t)x, .y = (uint16_t)y};
+
+        /* Left button = pen tip down (with pressure), right button = barrel switch, so apps
+           see one consistent pen pointer for hover, click and drag. */
+        bool left  = buttons & 0x01;
+        bool right = buttons & 0x02;
+        uint8_t flags = 0x01 | (left ? 0x02 : 0) | (right ? 0x08 : 0); /* in range, tip, barrel */
+        touch_report_t pen = {.tip_pressure = left ? 255 : 0, .buttons = flags, .x = (uint16_t)x, .y = (uint16_t)y};
 
         if (!tud_hid_n_report(ITF_NUM_HID, REPORT_ID_DIGITIZER, &pen, sizeof(pen)))
             return false;
 
-        /* Clicks and wheel stay on the relative mouse interface with zero movement, so
-           Windows never sees pen taps. Only bother when something actually changed. */
-        if (buttons != last_buttons || wheel != 0 || pan != 0) {
-            mouse_report_t click = {.buttons = buttons, .wheel = wheel, .pan = pan, .x = 0, .y = 0, .mode = RELATIVE};
+        /* Middle and other buttons, wheel and pan have no pen equivalent: those still go over
+           the relative mouse interface with zero movement, only when something changed. */
+        uint8_t other = buttons & ~0x03;
+        if (other != last_buttons || wheel != 0 || pan != 0) {
+            mouse_report_t click = {.buttons = other, .wheel = wheel, .pan = pan, .x = 0, .y = 0, .mode = RELATIVE};
 
             if (!tud_hid_n_ready(ITF_NUM_HID_REL_M))
                 return false; /* Retry the whole report next pass; resending the pen position is harmless */
@@ -96,7 +103,7 @@ bool tud_mouse_report(uint8_t mode, uint8_t buttons, int16_t x, int16_t y, int8_
             if (!tud_hid_n_report(ITF_NUM_HID_REL_M, REPORT_ID_RELMOUSE, &click, sizeof(click)))
                 return false;
 
-            last_buttons = buttons;
+            last_buttons = other;
         }
 
         return true;
