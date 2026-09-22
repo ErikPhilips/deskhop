@@ -266,6 +266,11 @@ void switch_virtual_desktop(device_t *state, output_t *output, int new_index, in
           )___(          )___(     |     )___(          )___(          )___(
 */
 void do_screen_switch(device_t *state, int direction) {
+#if PEN_ABSOLUTE_TEST
+    /* Test build: no edge switching at all, so the cursor can be pushed across monitors freely.
+       Hotkey switching still works. */
+    return;
+#endif
     output_t *output = &state->config.output[state->active_output];
 
     /* No switching allowed if explicitly disabled or in gaming mode */
