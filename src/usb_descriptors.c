@@ -77,33 +77,41 @@ bool tud_mouse_report(uint8_t mode, uint8_t buttons, int16_t x, int16_t y, int8_
 
 #if PEN_ABSOLUTE_TEST
     if (mode == ABSOLUTE) {
-        /* Position goes out as a hovering external pen: in-range set, tip up, no pressure.
-           Flag bits follow the descriptor order: in range, tip switch, eraser, barrel, invert. */
+        /* Position goes out as a hovering external pen: in-range set, tip up, no pressure. */
         static uint8_t last_buttons = 0;
-
-        /* Left button = pen tip down (with pressure), right button = barrel switch, so apps
-           see one consistent pen pointer for hover, click and drag. */
-        bool left  = buttons & 0x01;
-        bool right = buttons & 0x02;
-        uint8_t flags = 0x01 | (left ? 0x02 : 0) | (right ? 0x08 : 0); /* in range, tip, barrel */
-        touch_report_t pen = {.tip_pressure = left ? 255 : 0, .buttons = flags, .x = (uint16_t)x, .y = (uint16_t)y};
+        static uint8_t nudge_phase = 0;
+        touch_report_t pen = {.tip_pressure = 0, .buttons = 0x01, .x = (uint16_t)x, .y = (uint16_t)y};
 
         if (!tud_hid_n_report(ITF_NUM_HID, REPORT_ID_DIGITIZER, &pen, sizeof(pen)))
             return false;
 
-        /* Middle and other buttons, wheel and pan have no pen equivalent: those still go over
-           the relative mouse interface with zero movement, only when something changed. */
-        uint8_t other = buttons & ~0x03;
-        if (other != last_buttons || wheel != 0 || pan != 0) {
-            mouse_report_t click = {.buttons = other, .wheel = wheel, .pan = pan, .x = 0, .y = 0, .mode = RELATIVE};
+        /* Clicks and wheel are real mouse events on the relative interface. Chromium-based apps
+           ignore a mouse click at a spot they only saw a pen hover over, so before any button
+           or wheel change the mouse pointer is nudged one pixel out and back to announce itself.
+           The three relative reports go out on successive passes; returning false keeps this
+           queue entry pending until the sequence completes (the pen resend is harmless). */
+        if (buttons != last_buttons || wheel != 0 || pan != 0) {
+            mouse_report_t rel = {.mode = RELATIVE};
 
             if (!tud_hid_n_ready(ITF_NUM_HID_REL_M))
-                return false; /* Retry the whole report next pass; resending the pen position is harmless */
-
-            if (!tud_hid_n_report(ITF_NUM_HID_REL_M, REPORT_ID_RELMOUSE, &click, sizeof(click)))
                 return false;
 
-            last_buttons = other;
+            switch (nudge_phase) {
+                case 0: rel.x = 1;  rel.buttons = last_buttons; break;
+                case 1: rel.x = -1; rel.buttons = last_buttons; break;
+                default: rel.buttons = buttons; rel.wheel = wheel; rel.pan = pan; break;
+            }
+
+            if (!tud_hid_n_report(ITF_NUM_HID_REL_M, REPORT_ID_RELMOUSE, &rel, sizeof(rel)))
+                return false;
+
+            if (nudge_phase < 2) {
+                nudge_phase++;
+                return false;
+            }
+
+            nudge_phase = 0;
+            last_buttons = buttons;
         }
 
         return true;
