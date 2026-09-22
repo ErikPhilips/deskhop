@@ -386,15 +386,32 @@ void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interfa
  * ==================================================== */
 
 void process_mouse_queue_task(device_t *state) {
-    mouse_report_t report = {0};
+    static mouse_report_t pending;
+    static bool have_pending = false;
 
     /* We need to be connected to the host to send messages */
     if (!state->tud_connected)
         return;
 
-    /* Peek first, if there is anything there... */
-    if (!queue_try_peek(&state->mouse_queue, &report))
-        return;
+    /* Take the next report off the queue, unless one is still waiting to go out */
+    if (!have_pending) {
+        if (!queue_try_remove(&state->mouse_queue, &pending))
+            return;
+        have_pending = true;
+    }
+
+    /* Absolute positions are idempotent: if several are queued, only the newest matters.
+       Collapse the run so a 1 kHz mouse can't build a backlog behind a 1 kHz endpoint.
+       Never collapse across a button change, wheel or pan; those must all reach the host. */
+    if (pending.mode == ABSOLUTE && pending.wheel == 0 && pending.pan == 0) {
+        mouse_report_t next;
+
+        while (queue_try_peek(&state->mouse_queue, &next) && next.mode == ABSOLUTE
+               && next.buttons == pending.buttons && next.wheel == 0 && next.pan == 0) {
+            queue_try_remove(&state->mouse_queue, &next);
+            pending = next;
+        }
+    }
 
     /* If we are suspended, let's wake the host up */
     if (tud_suspended())
@@ -404,13 +421,9 @@ void process_mouse_queue_task(device_t *state) {
     if (!tud_hid_n_ready(ITF_NUM_HID))
         return;
 
-    /* Try sending it to the host, if it's successful */
-    bool succeeded
-        = tud_mouse_report(report.mode, report.buttons, report.x, report.y, report.wheel, report.pan);
-
-    /* ... then we can remove it from the queue */
-    if (succeeded)
-        queue_try_remove(&state->mouse_queue, &report);
+    /* Try sending it to the host; on success the slot is free for the next one */
+    if (tud_mouse_report(pending.mode, pending.buttons, pending.x, pending.y, pending.wheel, pending.pan))
+        have_pending = false;
 }
 
 void queue_mouse_report(mouse_report_t *report, device_t *state) {
