@@ -86,6 +86,12 @@ void led_sync_task(device_t *state) {
                                          : (desired_leds & ~KEYBOARD_LED_CAPSLOCK);
         }
 
+#if PEN_ABSOLUTE_TEST
+        /* Test-build indicator: Caps Lock LED on while absolute (pen) mode is active, off in gaming mode */
+        desired_leds = state->gaming_mode ? (desired_leds & ~KEYBOARD_LED_CAPSLOCK)
+                                          : (desired_leds | KEYBOARD_LED_CAPSLOCK);
+#endif
+
         if (state->keyboard_leds_actual[BOARD_ROLE] != desired_leds)
             set_keyboard_leds(desired_leds, state);
     }
