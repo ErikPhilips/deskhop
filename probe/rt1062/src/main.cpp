@@ -15,6 +15,9 @@ public:
     volatile int32_t  acc_x = 0, acc_y = 0, acc_w = 0, acc_h = 0;
     volatile uint8_t  buttons = 0;
 
+    /* Negotiated link speed of the mouse on the host port: 0 = full 12 Mbit, 1 = low 1.5 Mbit, 2 = high 480 Mbit */
+    int speed() { return mydevice ? mydevice->speed : -1; }
+
 protected:
     void hid_input_end() override {
         MouseController::hid_input_end();      /* fills mouseX etc. from this one report */
@@ -78,9 +81,13 @@ void loop() {
         uint32_t in_count = r - last_reports;
         last_reports = r;
         if (in_count > peak_in) peak_in = in_count;
-        Serial.printf("in=%lu/s out=%lu/s peak_in=%lu mouse=%04x:%04x\n",
+        static const char *speeds[] = {"full-12M", "low-1.5M", "high-480M"};
+        int sp = mouse1.speed();
+        const uint8_t *prod = mouse1.USBHIDInput::product();
+        Serial.printf("in=%lu/s out=%lu/s peak_in=%lu mouse=%04x:%04x link=%s product=%s\n",
                       in_count, out_count, peak_in,
-                      mouse1.USBHIDInput::idVendor(), mouse1.USBHIDInput::idProduct());
+                      mouse1.USBHIDInput::idVendor(), mouse1.USBHIDInput::idProduct(),
+                      (sp >= 0 && sp <= 2) ? speeds[sp] : "none", prod ? (const char *)prod : "?");
         out_count = 0;
         window_start = now;
     }
