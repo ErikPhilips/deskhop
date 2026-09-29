@@ -95,10 +95,10 @@ hotkey_combo_t hotkeys[] = {
      .acknowledge    = true,
      .action_handler = &screen_border_hotkey_handler},
 
-    /* Switch to configuration mode  */
-    {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTSHIFT,
-     .keys           = {HID_KEY_C, HID_KEY_O},
-     .key_count      = 2,
+    /* Left Ctrl + Left Alt + Pause switches to configuration mode (DESKHOP drive, flash by UF2 copy) */
+    {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_LEFTALT,
+     .keys           = {HID_KEY_PAUSE},
+     .key_count      = 1,
      .acknowledge    = true,
      .action_handler = &config_enable_hotkey_handler},
 
