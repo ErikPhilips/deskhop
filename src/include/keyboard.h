@@ -27,7 +27,7 @@ keyboard_t *get_or_add_keyboard(hid_interface_t *iface, uint8_t report_id);
  *  Hotkey Handling
  *==============================================================================*/
 
-bool check_specific_hotkey(hotkey_combo_t, const hid_keyboard_report_t *);
+bool check_specific_hotkey(hotkey_combo_t, const hid_keyboard_report_t *, const hid_keyboard_report_t *);
 
 /*==============================================================================
  *  Keyboard State Management

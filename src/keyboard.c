@@ -166,7 +166,11 @@ bool report_is_empty(const hid_keyboard_report_t *report) {
 }
 
 /* Check if the current report matches a specific hotkey passed on */
-bool check_specific_hotkey(hotkey_combo_t keypress, const hid_keyboard_report_t *report) {
+bool check_specific_hotkey(hotkey_combo_t keypress,
+                           const hid_keyboard_report_t *report,
+                           const hid_keyboard_report_t *previous) {
+    bool key_went_down = false;
+
     /* We expect all modifiers specified to be detected in the report */
     if (keypress.modifier != (report->modifier & keypress.modifier))
         return false;
@@ -175,16 +179,27 @@ bool check_specific_hotkey(hotkey_combo_t keypress, const hid_keyboard_report_t 
         if (!key_in_report(keypress.keys[n], report)) {
             return false;
         }
+
+        if (!key_in_report(keypress.keys[n], previous))
+            key_went_down = true;
     }
 
-    /* Getting here means all of the keys were found. */
-    return true;
+    /* Modifier-only hotkeys have no key to wait for */
+    if (keypress.key_count == 0)
+        return true;
+
+    /* Order matters: the combo has to be completed by a key going down, not by a modifier.
+       Caps Lock first, then Ctrl, already delivered a bare Caps Lock to the current output
+       (toggling caps there), so it must not also switch. */
+    return key_went_down;
 }
 
 /* Go through the list of hotkeys, check if any of them match. */
-hotkey_combo_t *check_all_hotkeys(hid_keyboard_report_t *report, device_t *state) {
+hotkey_combo_t *check_all_hotkeys(hid_keyboard_report_t *report,
+                                  const hid_keyboard_report_t *previous,
+                                  device_t *state) {
     for (int n = 0; n < ARRAY_SIZE(hotkeys); n++) {
-        if (check_specific_hotkey(hotkeys[n], report)) {
+        if (check_specific_hotkey(hotkeys[n], report, previous)) {
             return &hotkeys[n];
         }
     }
@@ -360,11 +375,16 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
         state->hotkey_release_pending = false;
     }
 
+    /* Remember what this device held before, so hotkeys can tell which key arrived last */
+    hid_keyboard_report_t previous_report = {0};
+    if (itf < MAX_DEVICES)
+        previous_report = state->local_kbd_states[itf];
+
     /* Update the keyboard state for this device */
     update_kbd_state(state, &new_report, itf);
 
     /* Check if any hotkey was pressed */
-    hotkey = check_all_hotkeys(&new_report, state);
+    hotkey = check_all_hotkeys(&new_report, &previous_report, state);
 
     /* ... and take appropriate action */
     if (hotkey != NULL) {
