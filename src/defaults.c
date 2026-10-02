@@ -61,5 +61,6 @@ const config_t default_config = {
     .hotkey_toggle = HOTKEY_TOGGLE,
     .kbd_led_as_indicator = KBD_LED_AS_INDICATOR,
     .jump_threshold = JUMP_THRESHOLD,
+    .gaming_mode_default = 1,
     .led_mode = LED_ACTIVE_OUTPUT,
 };
