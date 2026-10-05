@@ -11,6 +11,7 @@
 
 #include "main.h"
 #include "host/hcd.h"
+#include <math.h>
 
 void task_scheduler(device_t *state, task_t *task) {
     uint64_t current_time = time_us_64();
@@ -73,15 +74,23 @@ mouse_report_t *screensaver_pong(device_t *state) {
 
 mouse_report_t *screensaver_jitter(device_t *state) {
     static mouse_report_t report = {.mode = RELATIVE};
+    static uint32_t heading_deg = 0;
+    static float x = 0, y = 0;         /* Exact position along the circle */
+    static int16_t sent_x = 0, sent_y = 0; /* Position already sent, in whole pixels */
 
-    /* Eight compass directions; pick one from the clock so each nudge goes somewhere new */
-    static const int8_t dirs[8][2] = {
-        {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
-    };
-    uint8_t d = (time_us_32() >> 4) & 7;
+    /* Move JITTER_STEP_PX along the current heading, then turn by JITTER_ANGLE_DEG; the moves trace a circle.
+       Track the exact position and send the whole-pixel difference, so rounding never drifts the circle. */
+    float heading = (float)heading_deg * (float)M_PI / 180.0f;
+    x += JITTER_STEP_PX * cosf(heading);
+    y += JITTER_STEP_PX * sinf(heading);
+    heading_deg = (heading_deg + JITTER_ANGLE_DEG) % 360;
 
-    report.x = dirs[d][0] * JITTER_DISTANCE;
-    report.y = dirs[d][1] * JITTER_DISTANCE;
+    int16_t next_x = (int16_t)lroundf(x);
+    int16_t next_y = (int16_t)lroundf(y);
+    report.x = next_x - sent_x;
+    report.y = next_y - sent_y;
+    sent_x = next_x;
+    sent_y = next_y;
 
     return &report;
 }
@@ -91,7 +100,7 @@ void screensaver_task(device_t *state) {
     const uint32_t delays[] = {
         0,        /* DISABLED, unused index 0 */
         5000,     /* PONG, move mouse every 5 ms for a high framerate */
-        10000000, /* JITTER, once every 10 sec is more than enough */
+        JITTER_STEP_US, /* JITTER, one move around the circle */
     };
     static uint32_t last_pointer_move = 0;
     screensaver_t *screensaver = &state->config.output[BOARD_ROLE].screensaver;
@@ -108,6 +117,11 @@ void screensaver_task(device_t *state) {
     /* We exceeded the maximum permitted screensaver runtime */
     if (screensaver->max_time_us
         && inactivity_period > (screensaver->max_time_us + screensaver->idle_time_us))
+        return;
+
+    /* Jitter keeps out of the way of the real mouse: it pauses on any mouse input and resumes once the mouse is still */
+    if (screensaver->mode == JITTER
+        && time_us_64() - state->last_mouse_activity[BOARD_ROLE] < JITTER_MOUSE_IDLE_US)
         return;
 
     /* If we're the selected output and we can only run on inactive output, nothing to do here. */
