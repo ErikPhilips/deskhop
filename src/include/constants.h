@@ -47,7 +47,10 @@
  *==============================================================================*/
 
 #define CONFIG_MODE_TIMEOUT 300000000 // 5 minutes into the future
-#define JITTER_DISTANCE 10
+#define JITTER_ANGLE_DEG    15      /* Jitter turns this much after each move; 360 / 15 = 24 moves per lap */
+#define JITTER_STEP_PX      5       /* Length of each jitter move */
+#define JITTER_STEP_US      150000  /* Time between jitter moves */
+#define JITTER_MOUSE_IDLE_US 2000000 /* Jitter waits this long after the last real mouse input */
 #define SCREENSAVER_TOGGLE_JITTER 0xFF /* Sent over UART: flip the other board between JITTER and DISABLED */
 #define SCREENSAVER_STATUS_FLAG   0x80 /* Sent over UART: OR'd with a mode, tells the other board what ours is now */
 #define CAPS_BLINK_INTERVAL_US 500000  /* Caps Lock LED half-period while jitter runs on the active output */

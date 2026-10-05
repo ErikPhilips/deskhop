@@ -154,12 +154,10 @@ static void _screensaver_toggle_jitter_local(device_t *state) {
     screensaver_t *ss = &state->config.output[BOARD_ROLE].screensaver;
     _screensaver_apply_local(state, (ss->mode == JITTER) ? DISABLED : JITTER);
 
-    /* Hotkey-driven jitter starts right now and keeps going every tick, no idle wait:
-       one nudge immediately so the toggle is visible, then the task takes over. */
-    if (ss->mode == JITTER) {
+    /* Hotkey-driven jitter ignores the configured idle time; it runs whenever the mouse
+       has been still for JITTER_MOUSE_IDLE_US (see screensaver_task). */
+    if (ss->mode == JITTER)
         ss->idle_time_us = 0;
-        queue_mouse_report(screensaver_jitter(state), state);
-    }
 }
 
 /* Toggle jitter screensaver for whichever output is currently active (Left Alt + Caps Lock).
@@ -214,6 +212,7 @@ void handle_mouse_abs_uart_msg(uart_packet_t *packet, device_t *state) {
     state->mouse_buttons   = mouse_report->buttons;
 
     state->last_activity[BOARD_ROLE] = time_us_64();
+    state->last_mouse_activity[BOARD_ROLE] = time_us_64();
 }
 
 /* Function handles request to switch output  */
