@@ -46,6 +46,7 @@ void handle_flash_led_msg(uart_packet_t *, device_t *);
 void handle_fw_upgrade_msg(uart_packet_t *, device_t *);
 void handle_toggle_gaming_msg(uart_packet_t *, device_t *);
 void handle_heartbeat_msg(uart_packet_t *, device_t *);
+void handle_host_status_msg(uart_packet_t *, device_t *);
 void handle_keyboard_uart_msg(uart_packet_t *, device_t *);
 void handle_mouse_abs_uart_msg(uart_packet_t *, device_t *);
 void handle_mouse_zoom_msg(uart_packet_t *, device_t *);

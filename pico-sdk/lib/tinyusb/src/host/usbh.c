@@ -348,6 +348,44 @@ static void clear_device(usbh_device_t* dev) {
   memset(dev->ep2drv , TUSB_INDEX_INVALID_8, sizeof(dev->ep2drv )); // invalid mapping
 }
 
+//--------------------------------------------------------------------+
+// DeskHop: device-slot diagnostics (declared in src/include/usbh_diag.h)
+//--------------------------------------------------------------------+
+static uint8_t _diag_enum_abandoned; // enumerations given up after retries
+static uint8_t _diag_stale_cleared;  // root-port attaches that found slots still marked connected
+static uint8_t _diag_addr_failed;    // SET_ADDRESS found no free slot
+
+static void diag_bump(uint8_t* counter) {
+  if (*counter < UINT8_MAX) (*counter)++;
+}
+
+uint8_t tuh_diag_slots_used(void) {
+  uint8_t used = 0;
+  for (uint8_t i = 0; i < CFG_TUH_DEVICE_MAX; i++) {
+    if (_usbh_devices[i].connected) used++;
+  }
+  return used;
+}
+
+bool tuh_diag_hub_connected(void) {
+  for (uint8_t i = CFG_TUH_DEVICE_MAX; i < TOTAL_DEVICES; i++) {
+    if (_usbh_devices[i].connected) return true;
+  }
+  return false;
+}
+
+bool tuh_diag_any_mounted(void) {
+  for (uint8_t i = 0; i < TOTAL_DEVICES; i++) {
+    if (_usbh_devices[i].configured) return true;
+  }
+  return false;
+}
+
+bool tuh_diag_enumerating(void) { return _dev0.enumerating; }
+uint8_t tuh_diag_enum_abandoned(void) { return _diag_enum_abandoned; }
+uint8_t tuh_diag_stale_cleared(void) { return _diag_stale_cleared; }
+uint8_t tuh_diag_addr_failed(void) { return _diag_addr_failed; }
+
 bool tuh_inited(void) {
   return _usbh_controller != TUSB_INDEX_INVALID_8;
 }
@@ -496,6 +534,20 @@ void tuh_task_ext(uint32_t timeout_ms, bool in_isr) {
           }
         } else {
           TU_LOG_USBH("[%u:] USBH DEVICE ATTACH\r\n", event.rhport);
+
+          // DeskHop: a new attach on the root port means whatever was there before is gone.
+          // If its removal was never processed, its slot is still marked connected and leaks.
+          if (event.connection.hub_addr == 0) {
+            bool stale = false;
+            for (uint8_t i = 0; i < TOTAL_DEVICES; i++) {
+              if (_usbh_devices[i].connected && _usbh_devices[i].rhport == event.rhport) stale = true;
+            }
+            if (stale) {
+              diag_bump(&_diag_stale_cleared);
+              process_removing_device(event.rhport, 0, 0);
+            }
+          }
+
           _dev0.enumerating = 1;
           enum_new_device(&event);
         }
@@ -1304,6 +1356,23 @@ static bool enum_request_set_addr(void);
 static bool _parse_configuration_descriptor (uint8_t dev_addr, tusb_desc_configuration_t const* desc_cfg);
 static void enum_full_complete(void);
 
+// DeskHop: release the slot of a device whose enumeration failed after it was given an address.
+// Without this the slot stays marked connected until a removal event for its port arrives.
+static void enum_abandon_device(uint8_t daddr) {
+  if (daddr == 0) return;
+
+  usbh_device_t* dev = get_device(daddr);
+  if (!dev || !dev->connected || dev->configured) return;
+
+  for (uint8_t drv_id = 0; drv_id < TOTAL_DRIVER_COUNT; drv_id++) {
+    usbh_class_driver_t const* driver = get_driver(drv_id);
+    if (driver) driver->close(daddr);
+  }
+
+  hcd_device_close(dev->rhport, daddr);
+  clear_device(dev);
+}
+
 // process device enumeration
 static void process_enumeration(tuh_xfer_t* xfer) {
   // Retry a few times with transfers in enumeration since device can be unstable when starting up
@@ -1325,6 +1394,8 @@ static void process_enumeration(tuh_xfer_t* xfer) {
 
     if (!retry) {
       failed_count = 0; // next enumeration gets a fresh retry budget
+      if (_dev0.enumerating) diag_bump(&_diag_enum_abandoned);
+      enum_abandon_device(xfer->daddr);
       enum_full_complete();
     }
 
@@ -1416,7 +1487,12 @@ static void process_enumeration(tuh_xfer_t* xfer) {
 #endif
 
     case ENUM_SET_ADDR:
-      enum_request_set_addr();
+      // DeskHop: with no free slot this used to leave _dev0.enumerating set forever,
+      // deferring every later attach on this host until reboot.
+      if (!enum_request_set_addr()) {
+        diag_bump(&_diag_addr_failed);
+        enum_full_complete();
+      }
       break;
 
     case ENUM_GET_DEVICE_DESC: {

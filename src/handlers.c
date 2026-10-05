@@ -393,6 +393,12 @@ void handle_response_byte_msg(uart_packet_t *packet, device_t *state) {
     state->fw.byte_done = true;
 }
 
+/* The other board's USB host health */
+void handle_host_status_msg(uart_packet_t *packet, device_t *state) {
+    memcpy(&state->host_status[OTHER_ROLE], packet->data, sizeof(host_status_t));
+    state->host_status_time[OTHER_ROLE] = time_us_64();
+}
+
 /* Process a request to read a firmware package from flash */
 void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
     uint16_t other_running_version = packet->data16[0];

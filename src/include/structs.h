@@ -14,6 +14,7 @@
 #include "flash.h"
 #include "packet.h"
 #include "screen.h"
+#include "usbh_diag.h"
 
 typedef void (*action_handler_t)();
 
@@ -147,6 +148,11 @@ typedef struct {
     uint8_t remote_screensaver_mode; // Last screensaver mode the other board told us it is in
     bool config_mode_active; // True when config mode is active
     bool digitizer_active;   // True when digitizer Win/Mac workaround is active
+
+    /* USB host health, index 0 = A, 1 = B. Our own is refreshed locally, the other arrives over UART */
+    host_status_t host_status[NUM_SCREENS];
+    uint64_t host_status_time[NUM_SCREENS]; // When each block was last updated (0 = never)
+    uint8_t host_unmounted_secs;            // Seconds something has been attached with nothing mounted
 
     /* Onboard LED blinky (provide feedback when e.g. mouse connected) */
     int32_t  blinks_left;     // How many blink transitions are left

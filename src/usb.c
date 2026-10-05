@@ -19,6 +19,28 @@ _Static_assert(MAX_DEVICES <= CFG_TUH_DEVICE_MAX,
  * ===========  TinyUSB Device Callbacks  =========== *
  * ================================================== */
 
+/* Answer GET_REPORT(Feature) with both boards' USB host health. */
+static uint16_t get_host_status_report(uint8_t *buffer, uint16_t request_len) {
+    uint8_t report[HOST_STATUS_REPORT_LEN] = {HOST_STATUS_FORMAT, BOARD_ROLE};
+    uint8_t *pos = &report[2];
+    uint64_t now = time_us_64();
+
+    if (request_len < sizeof(report))
+        return 0;
+
+    for (int board = 0; board < NUM_SCREENS; board++) {
+        uint64_t updated = global_state.host_status_time[board];
+        uint64_t age_s = updated ? (now - updated) / 1000000ULL : HOST_STATUS_AGE_UNKNOWN;
+
+        memcpy(pos, &global_state.host_status[board], sizeof(host_status_t));
+        pos += sizeof(host_status_t);
+        *pos++ = age_s < HOST_STATUS_AGE_UNKNOWN ? age_s : HOST_STATUS_AGE_UNKNOWN;
+    }
+
+    memcpy(buffer, report, sizeof(report));
+    return sizeof(report);
+}
+
 /* Invoked when we get GET_REPORT control request.
  * We are expected to fill buffer with the report content, update reqlen
  * and return its length. We return 0 to STALL the request. */
@@ -27,6 +49,9 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
                                hid_report_type_t report_type,
                                uint8_t *buffer,
                                uint16_t request_len) {
+    if (instance == ITF_NUM_HID && report_id == REPORT_ID_HOST_STATUS && report_type == HID_REPORT_TYPE_FEATURE)
+        return get_host_status_report(buffer, request_len);
+
     return 0;
 }
 

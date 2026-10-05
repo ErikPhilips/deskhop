@@ -25,6 +25,9 @@
 // Interface 2
 #define REPORT_ID_VENDOR 6
 
+// Interface 0, feature report: USB host health of both boards (see usbh_diag.h)
+#define REPORT_ID_HOST_STATUS 8
+
 
 #define DEVICE_DESCRIPTOR(vid, pid) \
 {.bLength         = sizeof(tusb_desc_device_t),\
@@ -148,6 +151,21 @@
     HID_INPUT        ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,\
     HID_USAGE       ( 0x10                                )  ,\
     HID_OUTPUT       ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,\
+  HID_COLLECTION_END \
+
+// Host Status Descriptor Template (vendor page, feature report only, readable any time)
+#define TUD_HID_REPORT_DESC_HOST_STATUS(...) \
+  HID_USAGE_PAGE_N ( HID_USAGE_PAGE_VENDOR, 2 )             ,\
+  HID_USAGE      ( 0x20 )                                   ,\
+  HID_COLLECTION ( HID_COLLECTION_APPLICATION )             ,\
+    /* Report ID if any */\
+    __VA_ARGS__ \
+    HID_USAGE        ( 0x20                               )  ,\
+    HID_LOGICAL_MIN  ( 0x00                               )  ,\
+    HID_LOGICAL_MAX_N( 0xff, 2                            )  ,\
+    HID_REPORT_SIZE  ( 8                                  )  ,\
+    HID_REPORT_COUNT ( HOST_STATUS_REPORT_LEN             )  ,\
+    HID_FEATURE      ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
   HID_COLLECTION_END \
 
 #define HID_USAGE_DIGITIZER 0x01
