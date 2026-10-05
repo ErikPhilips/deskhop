@@ -154,8 +154,8 @@ static void _screensaver_toggle_jitter_local(device_t *state) {
     screensaver_t *ss = &state->config.output[BOARD_ROLE].screensaver;
     _screensaver_apply_local(state, (ss->mode == JITTER) ? DISABLED : JITTER);
 
-    /* Hotkey-driven jitter ignores the configured idle time; it runs whenever the mouse
-       has been still for JITTER_MOUSE_IDLE_US (see screensaver_task). */
+    /* Hotkey-driven jitter ignores the configured idle time; it runs whenever the keyboard
+       and mouse have been still for JITTER_IDLE_US (see screensaver_task). */
     if (ss->mode == JITTER)
         ss->idle_time_us = 0;
 }
@@ -212,7 +212,6 @@ void handle_mouse_abs_uart_msg(uart_packet_t *packet, device_t *state) {
     state->mouse_buttons   = mouse_report->buttons;
 
     state->last_activity[BOARD_ROLE] = time_us_64();
-    state->last_mouse_activity[BOARD_ROLE] = time_us_64();
 }
 
 /* Function handles request to switch output  */
