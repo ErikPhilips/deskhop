@@ -88,6 +88,7 @@ const uart_handler_t uart_handler[] = {
     {.type = FIRMWARE_UPGRADE_MSG, .handler = handle_fw_upgrade_msg},
 
     {.type = HEARTBEAT_MSG, .handler = handle_heartbeat_msg},
+    {.type = HOST_STATUS_MSG, .handler = handle_host_status_msg},
     {.type = PROXY_PACKET_MSG, .handler = handle_proxy_msg},
 };
 

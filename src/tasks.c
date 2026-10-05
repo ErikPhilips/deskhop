@@ -10,6 +10,7 @@
  */
 
 #include "main.h"
+#include "host/hcd.h"
 
 void task_scheduler(device_t *state, task_t *task) {
     uint64_t current_time = time_us_64();
@@ -175,6 +176,76 @@ void heartbeat_output_task(device_t *state) {
     queue_try_add(&global_state.uart_tx_queue, &packet);
 }
 
+
+/* Recovery reboots survive in a watchdog scratch register; power-on clears it.
+   Layout: magic in the top half, total recoveries in bits 8-15, consecutive ones in bits 0-7. */
+#define RECOVERY_SCRATCH       0
+#define RECOVERY_MAGIC         0xD1A60000
+#define RECOVERY_MAGIC_MASK    0xFFFF0000
+
+static uint32_t recovery_word(void) {
+    uint32_t word = watchdog_hw->scratch[RECOVERY_SCRATCH];
+    return ((word & RECOVERY_MAGIC_MASK) == RECOVERY_MAGIC) ? word : RECOVERY_MAGIC;
+}
+
+/* Once a second: refresh our USB host health, send it to the other board, and
+   reboot ourselves if something is attached to the socket but nothing has mounted. */
+void host_status_task(device_t *state) {
+    uint32_t recovery = recovery_word();
+    bool port_connected = hcd_port_connect_status(BOARD_TUH_RHPORT);
+    bool any_mounted = tuh_diag_any_mounted();
+
+    host_status_t *mine = &state->host_status[BOARD_ROLE];
+    *mine = (host_status_t){
+        .slots_used     = tuh_diag_slots_used(),
+        .flags          = HOST_STATUS_VALID
+                        | (tuh_diag_hub_connected() ? HOST_STATUS_HUB : 0)
+                        | (tuh_diag_enumerating() ? HOST_STATUS_ENUMERATING : 0)
+                        | (port_connected ? HOST_STATUS_PORT_CONN : 0)
+                        | (any_mounted ? HOST_STATUS_MOUNTED : 0)
+                        | (state->keyboard_connected ? HOST_STATUS_KEYBOARD : 0)
+                        | (state->mouse_connected ? HOST_STATUS_MOUSE : 0),
+        .enum_abandoned = tuh_diag_enum_abandoned(),
+        .stale_cleared  = tuh_diag_stale_cleared(),
+        .addr_failed    = tuh_diag_addr_failed(),
+        .recoveries     = (recovery >> 8) & 0xFF,
+        .uptime_min     = (uint16_t)(time_us_64() / 60000000ULL),
+    };
+    state->host_status_time[BOARD_ROLE] = time_us_64();
+
+    uart_packet_t packet = {.type = HOST_STATUS_MSG};
+    memcpy(packet.data, mine, sizeof(host_status_t));
+    queue_try_add(&global_state.uart_tx_queue, &packet);
+
+    /* A device mounted: the host works, so the consecutive-recovery budget is restored. */
+    if (any_mounted && (recovery & 0xFF)) {
+        recovery &= ~0xFFu;
+        watchdog_hw->scratch[RECOVERY_SCRATCH] = recovery;
+    }
+
+    if (!port_connected || any_mounted) {
+        state->host_unmounted_secs = 0;
+        return;
+    }
+
+    /* Leave config mode and firmware transfers alone; they reboot on their own terms. */
+    if (state->config_mode_active || state->fw.upgrade_in_progress)
+        return;
+
+    if (++state->host_unmounted_secs < HOST_RECOVERY_TIMEOUT_S)
+        return;
+
+    /* Give up after a few tries, a device that never enumerates shouldn't cause a reboot loop. */
+    if ((recovery & 0xFF) >= HOST_RECOVERY_MAX_TRIES)
+        return;
+
+    uint32_t total = (recovery >> 8) & 0xFF;
+    if (total < 0xFF)
+        total++;
+
+    watchdog_hw->scratch[RECOVERY_SCRATCH] = RECOVERY_MAGIC | (total << 8) | ((recovery & 0xFF) + 1);
+    reboot();
+}
 
 /* Process other outgoing hid report messages. */
 void process_hid_queue_task(device_t *state) {
