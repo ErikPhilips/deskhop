@@ -98,7 +98,6 @@ typedef struct {
     uint8_t keyboard_leds_desired[NUM_SCREENS];  // Desired state of keyboard LEDs (index 0 = A, index 1 = B)
     uint8_t keyboard_leds_actual[NUM_SCREENS];   // Actual state of keyboard LEDs
     uint64_t last_activity[NUM_SCREENS]; // Timestamp of the last input activity (-||-)
-    uint64_t last_mouse_activity[NUM_SCREENS]; // Timestamp of the last real mouse input (-||-)
     uint32_t core1_last_loop_pass;       // Timestamp of last core1 loop execution
     uint8_t active_output;               // Currently selected output (0 = A, 1 = B)
     uint8_t board_role;                  // Which board are we running on? (0 = A, 1 = B, etc.)

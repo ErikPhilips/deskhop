@@ -119,10 +119,15 @@ void screensaver_task(device_t *state) {
         && inactivity_period > (screensaver->max_time_us + screensaver->idle_time_us))
         return;
 
-    /* Jitter keeps out of the way of the real mouse: it pauses on any mouse input and resumes once the mouse is still */
-    if (screensaver->mode == JITTER
-        && time_us_64() - state->last_mouse_activity[BOARD_ROLE] < JITTER_MOUSE_IDLE_US)
-        return;
+    /* Jitter keeps out of the way: it pauses on any keyboard or mouse input, or while a key is held,
+       and resumes once everything has been still for JITTER_IDLE_US */
+    if (screensaver->mode == JITTER) {
+        hid_keyboard_report_t held;
+        combine_kbd_states(state, &held);
+
+        if (inactivity_period < JITTER_IDLE_US || held.modifier || held.keycode[0])
+            return;
+    }
 
     /* If we're the selected output and we can only run on inactive output, nothing to do here. */
     if (screensaver->only_if_inactive && CURRENT_BOARD_IS_ACTIVE_OUTPUT)
