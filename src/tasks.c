@@ -74,23 +74,37 @@ mouse_report_t *screensaver_pong(device_t *state) {
 
 mouse_report_t *screensaver_jitter(device_t *state) {
     static mouse_report_t report = {.mode = RELATIVE};
-    static uint32_t heading_deg = 0;
-    static float x = 0, y = 0;         /* Exact position along the circle */
-    static int16_t sent_x = 0, sent_y = 0; /* Position already sent, in whole pixels */
+    static int8_t half_lap[JITTER_STEPS / 2][2];
+    static bool built = false;
+    static uint8_t step = 0;
 
-    /* Move JITTER_STEP_PX along the current heading, then turn by JITTER_ANGLE_DEG; the moves trace a circle.
-       Track the exact position and send the whole-pixel difference, so rounding never drifts the circle. */
-    float heading = (float)heading_deg * (float)M_PI / 180.0f;
-    x += JITTER_STEP_PX * cosf(heading);
-    y += JITTER_STEP_PX * sinf(heading);
-    heading_deg = (heading_deg + JITTER_ANGLE_DEG) % 360;
+    /* Build the first half of the circle once, as whole-pixel moves. Each move is the difference
+       between rounded points on the circle, so the half lap lands exactly where it should. */
+    if (!built) {
+        int16_t sent_x = 0, sent_y = 0;
 
-    int16_t next_x = (int16_t)lroundf(x);
-    int16_t next_y = (int16_t)lroundf(y);
-    report.x = next_x - sent_x;
-    report.y = next_y - sent_y;
-    sent_x = next_x;
-    sent_y = next_y;
+        for (int i = 0; i < JITTER_STEPS / 2; i++) {
+            float angle = 2.0f * (float)M_PI * (float)(i + 1) / JITTER_STEPS;
+            int16_t next_x = (int16_t)lroundf(JITTER_RADIUS_PX * sinf(angle));
+            int16_t next_y = (int16_t)lroundf(JITTER_RADIUS_PX * (1.0f - cosf(angle)));
+
+            half_lap[i][0] = next_x - sent_x;
+            half_lap[i][1] = next_y - sent_y;
+            sent_x = next_x;
+            sent_y = next_y;
+        }
+        built = true;
+    }
+
+    /* The second half replays the first half reversed in sign, which is the same circle.
+       Every move then has an exact opposite, so host pointer acceleration (which scales short
+       and long moves differently) cancels out each lap instead of drifting the cursor. */
+    int8_t sign = step < JITTER_STEPS / 2 ? 1 : -1;
+    uint8_t i = step % (JITTER_STEPS / 2);
+
+    report.x = sign * half_lap[i][0];
+    report.y = sign * half_lap[i][1];
+    step = (step + 1) % JITTER_STEPS;
 
     return &report;
 }
