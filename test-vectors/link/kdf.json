@@ -1,0 +1,111 @@
+{
+  "about": "P-256 ECDH and HKDF-SHA256 derivations. Pairing set 1 and sessions A and B are the ones transcript.json and messages.json use.",
+  "labels": {
+    "pair": "deskhop-link/1 pair",
+    "code": "deskhop-link/1 code || attempt u8",
+    "id": "deskhop-link/1 id",
+    "h2b": "deskhop-link/1 h2b",
+    "b2h": "deskhop-link/1 b2h"
+  },
+  "pairing": [
+    {
+      "name": "1",
+      "helper_priv": "8b5d9091dbe12eda2bb64f5278223a32546eb406bef1d2082ad1ee7a6f6ba3f6",
+      "helper_pub": "b9d3eb212ad713c47f899f88741a48f0fbba4dcc14c16a53525471c0727686ab8521fc1cc2bb9cbe57071405bb349c4d3e646607d449bddd419d7537dc0a0db8",
+      "board_priv": "81bd14d407b77e83fdae28a5d5b2dfc87d8739948d86a1af9b45c0996cd352a1",
+      "board_pub": "a5b9895dcce5cd416652db75e9fc4f884ab64bd9ebc15792eb7043e41557a32395647268c9a64018c24e31087a02e6ca16acab047e1f4f7a1259e51e7f47740d",
+      "ss": "31898d1ace2d8e91c69e2823e19565e5272a6a803191e94bffdef977f3d70d5e",
+      "th": "d4befe029dcfcac2f462dda2db7fdc7202ed8116ae5b3389487420d9b374834f",
+      "k_pair_prk": "29a2acedf1f3616c94c8fb508dc26d00ebb3ac98fca8fed8ba508b49c1dedde2",
+      "k_pair": "09829f375b68046f5aaf1c76afec68cf6079ec72657391fb70c6e3db8fe7be76",
+      "key_id": "25984e7467cffaa7",
+      "attempts": [
+        {
+          "attempt": 1,
+          "pad": "66ac42d2",
+          "code": "0e070b13",
+          "letters": "KDHP",
+          "code_ct": "68ab49c1"
+        },
+        {
+          "attempt": 2,
+          "pad": "3c03fe22",
+          "code": "1a1b1517",
+          "letters": "WXRT",
+          "code_ct": "2618eb35"
+        },
+        {
+          "attempt": 3,
+          "pad": "9f2081ba",
+          "code": "1d051004",
+          "letters": "ZBMA",
+          "code_ct": "822591be"
+        }
+      ]
+    },
+    {
+      "name": "2",
+      "helper_priv": "79e41229dd5fccef49c3f4f918d22777f9357b8c87e7b6bb0b155b1f9a936414",
+      "helper_pub": "92c554c3bf843d3d996510947a5cfedf44ad1850ab21a41049302e2500b8dd25b2503e9a861ad36c13e09e04b17e473edd9c4aa50301b61ec5b5a7b902f8d295",
+      "board_priv": "680fdcb5b8524414cfe6fe6938035cb45a6c12c2800110423bbf94ebe46896e5",
+      "board_pub": "f9dae91766c77f6a05e950d9123b008fa1c28cf0ae98afe2bda3addbb22898e131165ab0245ff9a8bcf76815fc508d08ec2edab413d12857c14b2d7d1c45f6d7",
+      "ss": "226b4bf0967a986b3c62b74b5ee73a8dd5b8591abbfbb417fe338e4d9b28175e",
+      "th": "5ada8231e12c9f3a0ebd1c9a626a84aca64483ed2dd69f1b03da62b1ea9851a2",
+      "k_pair_prk": "ddec02a1b09d3881339cf7a3e100b7aeb40cbafe5aa92e1b190716457edb90d0",
+      "k_pair": "cbaefeeb17663af21e526f182783a3dbf8372393d6f8eb897e15835b2ef17f2c",
+      "key_id": "97dd4556e40ff396",
+      "attempts": [
+        {
+          "attempt": 1,
+          "pad": "a5bb4d9e",
+          "code": "1408090a",
+          "letters": "QEFG",
+          "code_ct": "b1b34494"
+        },
+        {
+          "attempt": 2,
+          "pad": "36ae2208",
+          "code": "1118191c",
+          "letters": "NUVY",
+          "code_ct": "27b63b14"
+        },
+        {
+          "attempt": 3,
+          "pad": "44bf7ed3",
+          "code": "060d160e",
+          "letters": "CJSK",
+          "code_ct": "42b268dd"
+        }
+      ]
+    }
+  ],
+  "session": [
+    {
+      "name": "A",
+      "k_pair": "09829f375b68046f5aaf1c76afec68cf6079ec72657391fb70c6e3db8fe7be76",
+      "helper_nonce": "31233010178b1230df9c3a0f8a5ee3c7",
+      "board_nonce": "2566fdacf0e7f29ab9d7f524ee0324fd",
+      "salt": "31233010178b1230df9c3a0f8a5ee3c72566fdacf0e7f29ab9d7f524ee0324fd",
+      "k_h2b": "9890732291135ebacc0a4a3182c187e77a5ecee973bfe22742311eb7fdf9ef8e",
+      "k_b2h": "26254ed48c010261fed6a61c8c73efa2048d85c8ebfa240088dda20205725233"
+    },
+    {
+      "name": "B",
+      "k_pair": "09829f375b68046f5aaf1c76afec68cf6079ec72657391fb70c6e3db8fe7be76",
+      "helper_nonce": "ec8ad8933fbf180efbc728eb71133e8b",
+      "board_nonce": "ab7d827eda6e905aa1a142b6d12ac713",
+      "salt": "ec8ad8933fbf180efbc728eb71133e8bab7d827eda6e905aa1a142b6d12ac713",
+      "k_h2b": "c6cc126fb306bb510f77586d967c542f6ce8aa5746ff463bf2da1fececa0f526",
+      "k_b2h": "1a534439917c5982dbbba9e4cb47f261642ce2f957b3deda7688e8b9855cb017"
+    },
+    {
+      "name": "C",
+      "k_pair": "cbaefeeb17663af21e526f182783a3dbf8372393d6f8eb897e15835b2ef17f2c",
+      "helper_nonce": "31233010178b1230df9c3a0f8a5ee3c7",
+      "board_nonce": "2566fdacf0e7f29ab9d7f524ee0324fd",
+      "salt": "31233010178b1230df9c3a0f8a5ee3c72566fdacf0e7f29ab9d7f524ee0324fd",
+      "k_h2b": "42d172a341860240fc4039f2ed9a89ae949ec3e3198c0bb7d2f07e0e6329a81e",
+      "k_b2h": "2f9da44817768d7ac7a78f5a28f805de261b8d36aad59ce07c731e945f43fd48"
+    }
+  ]
+}

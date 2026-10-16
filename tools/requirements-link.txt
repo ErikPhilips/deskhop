@@ -1,0 +1,2 @@
+# tools/deskhop_link.py, gen-link-vectors.py, test_link_vectors.py (Python 3.10+)
+cryptography>=41

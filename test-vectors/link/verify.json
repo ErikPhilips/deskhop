@@ -1,0 +1,214 @@
+{
+  "about": "Receive-side rules for signed frames. Each scenario starts from the state given and feeds the frames in order; every drop is silent on the wire. `why` is informative only.",
+  "scenarios": [
+    {
+      "name": "box receiver",
+      "role": "box",
+      "key": "9890732291135ebacc0a4a3182c187e77a5ecee973bfe22742311eb7fdf9ef8e",
+      "start_highest": null,
+      "steps": [
+        {
+          "note": "first frame of a session, counter 0",
+          "frame": "11180000000000000000002190ad72a4027e573b80432b4a3bc4dc",
+          "expect": "accept",
+          "counter": 0,
+          "message": "",
+          "highest_after": 0
+        },
+        {
+          "note": "replay of the same frame",
+          "frame": "11180000000000000000002190ad72a4027e573b80432b4a3bc4dc",
+          "expect": "drop",
+          "why": "stale counter",
+          "highest_after": 0
+        },
+        {
+          "note": "gap ahead is accepted",
+          "frame": "201b000500000000000000d75540674813be6d6ee65aea62f9b47d010080",
+          "expect": "accept",
+          "counter": 5,
+          "message": "010080",
+          "highest_after": 5
+        },
+        {
+          "note": "older counter",
+          "frame": "11180003000000000000005c4f2642e1a952a5c8b09c53cc50758f",
+          "expect": "drop",
+          "why": "stale counter",
+          "highest_after": 5
+        },
+        {
+          "note": "equal counter",
+          "frame": "11180005000000000000008466224110267271edbac6593f4b9ebd",
+          "expect": "drop",
+          "why": "stale counter",
+          "highest_after": 5
+        },
+        {
+          "note": "counter 100 with a bad tag: dropped and not recorded",
+          "frame": "201b006400000000000000e2176bc5211df1dc0deefb8b3fa78447010080",
+          "expect": "drop",
+          "why": "bad tag",
+          "highest_after": 5
+        },
+        {
+          "note": "counter 6 is still newer than the last accepted (5)",
+          "frame": "1118000600000000000000db3e4b52b147974b26f695dc12e6468c",
+          "expect": "accept",
+          "counter": 6,
+          "message": "",
+          "highest_after": 6
+        },
+        {
+          "note": "message body altered after signing",
+          "frame": "201b000700000000000000f4e50622fc46c3dc77e9928acc5d362c010081",
+          "expect": "drop",
+          "why": "bad tag",
+          "highest_after": 6
+        },
+        {
+          "note": "counter altered after signing",
+          "frame": "1118000600000000000000f00f200d7b7d742d9fcbb17cef54976d",
+          "expect": "drop",
+          "why": "bad tag",
+          "highest_after": 6
+        },
+        {
+          "note": "signed with the other direction's key",
+          "frame": "1118000700000000000000e89fd2f57a221783a7128685664901b8",
+          "expect": "drop",
+          "why": "bad tag",
+          "highest_after": 6
+        },
+        {
+          "note": "box-to-host type with a valid h2b tag",
+          "frame": "211b0007000000000000008e94f4ad0e3fee4789de678aacf754a3000080",
+          "expect": "drop",
+          "why": "wrong direction",
+          "highest_after": 6
+        },
+        {
+          "note": "signed type with len 10, shorter than the auth prefix",
+          "frame": "110a0000000000000000000000",
+          "expect": "drop",
+          "why": "too short for the auth prefix",
+          "highest_after": 6
+        },
+        {
+          "note": "largest counter in the vectors",
+          "frame": "111800ffffffffffff1f000b4ea9bdd3733c85c311eaa6a4b43c9b",
+          "expect": "accept",
+          "counter": 9007199254740991,
+          "message": "",
+          "highest_after": 9007199254740991
+        }
+      ]
+    },
+    {
+      "name": "app receiver",
+      "role": "app",
+      "key": "26254ed48c010261fed6a61c8c73efa2048d85c8ebfa240088dda20205725233",
+      "start_highest": null,
+      "steps": [
+        {
+          "note": "HELLO_ACK at counter 0",
+          "frame": "1031000000000000000000447fde8b147ffc2df5f14f0f352cee9d040e1c7a01002566fdacf0e7f29ab9d7f524ee0324fd000101",
+          "expect": "accept",
+          "counter": 0,
+          "message": "040e1c7a01002566fdacf0e7f29ab9d7f524ee0324fd000101",
+          "highest_after": 0
+        },
+        {
+          "note": "STATE at counter 1",
+          "frame": "121c000100000000000000874154cb3930541ce304ad71775db46c00010000",
+          "expect": "accept",
+          "counter": 1,
+          "message": "00010000",
+          "highest_after": 1
+        },
+        {
+          "note": "replayed STATE",
+          "frame": "121c000100000000000000874154cb3930541ce304ad71775db46c00010000",
+          "expect": "drop",
+          "why": "stale counter",
+          "highest_after": 1
+        },
+        {
+          "note": "host-to-box type with a valid b2h tag",
+          "frame": "201b000200000000000000ab6b98d384b64da22d74c2667150f503010080",
+          "expect": "drop",
+          "why": "wrong direction",
+          "highest_after": 1
+        },
+        {
+          "note": "STATE from another session (same k_pair, other nonces)",
+          "frame": "121c0002000000000000008fa0e4ce118f1674a783495bc552e7b600010000",
+          "expect": "drop",
+          "why": "bad tag",
+          "highest_after": 1
+        },
+        {
+          "note": "STATE at counter 2",
+          "frame": "121c000200000000000000b6d6608ee570247a8a8fff72b64af07d00010000",
+          "expect": "accept",
+          "counter": 2,
+          "message": "00010000",
+          "highest_after": 2
+        }
+      ]
+    },
+    {
+      "name": "pending session on the box",
+      "role": "box",
+      "start": {
+        "confirmed": {
+          "session": "A",
+          "k_h2b": "9890732291135ebacc0a4a3182c187e77a5ecee973bfe22742311eb7fdf9ef8e",
+          "highest": 4
+        },
+        "pending": {
+          "session": "B",
+          "k_h2b": "c6cc126fb306bb510f77586d967c542f6ce8aa5746ff463bf2da1fececa0f526",
+          "highest": null
+        }
+      },
+      "steps": [
+        {
+          "note": "old session still works while B is pending",
+          "frame": "11180005000000000000008466224110267271edbac6593f4b9ebd",
+          "expect": "accept",
+          "counter": 5,
+          "message": "",
+          "confirmed_after": "A",
+          "pending_after": "B"
+        },
+        {
+          "note": "first frame under B confirms it",
+          "frame": "11180000000000000000002bb022637ea3af9800942ca183de606a",
+          "expect": "accept",
+          "counter": 0,
+          "message": "",
+          "confirmed_after": "B",
+          "pending_after": null
+        },
+        {
+          "note": "A is gone once B is confirmed",
+          "frame": "1118000600000000000000db3e4b52b147974b26f695dc12e6468c",
+          "expect": "drop",
+          "why": "bad tag",
+          "confirmed_after": "B",
+          "pending_after": null
+        },
+        {
+          "note": "B carries on",
+          "frame": "201b000100000000000000c712619d1a56cc576f059f18cc247eb2010080",
+          "expect": "accept",
+          "counter": 1,
+          "message": "010080",
+          "confirmed_after": "B",
+          "pending_after": null
+        }
+      ]
+    }
+  ]
+}
