@@ -24,8 +24,7 @@
 #define REPORT_ID_RELMOUSE  5
 #define REPORT_ID_DIGITIZER 7
 
-// Interface 2
-#define REPORT_ID_VENDOR 6
+// Interface 2 (normal mode): DeskHop Link, reports carry no report ID
 
 // Interface 0, feature report: USB host health of both boards (see usbh_diag.h)
 #define REPORT_ID_HOST_STATUS 8
@@ -41,7 +40,7 @@
   .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,\
   .idVendor  = vid,\
   .idProduct = pid,\
-  .bcdDevice = 0x0100,\
+  .bcdDevice = 0x0101, /* 0x0101: DeskHop Link added, config channel removed */\
   .iManufacturer = 0x01,\
   .iProduct      = 0x02,\
   .iSerialNumber = 0x03,\
@@ -138,21 +137,19 @@
     HID_INPUT        ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,\
   HID_COLLECTION_END \
 
-// Vendor Config Descriptor Template
-#define TUD_HID_REPORT_DESC_VENDOR_CTRL(...) \
+// DeskHop Link Descriptor Template: 64-byte input and output reports, no report ID (protocol.md)
+#define TUD_HID_REPORT_DESC_LINK() \
   HID_USAGE_PAGE_N ( HID_USAGE_PAGE_VENDOR, 2 )             ,\
-  HID_USAGE      ( 0x10 )                                   ,\
+  HID_USAGE      ( 0x30 )                                   ,\
   HID_COLLECTION ( HID_COLLECTION_APPLICATION )             ,\
-    /* Report ID if any */\
-    __VA_ARGS__ \
-    HID_LOGICAL_MIN ( 0x80                                )  ,\
-    HID_LOGICAL_MAX ( 0x7f                                )  ,\
-    HID_REPORT_COUNT( 12                                  )  ,\
-    HID_REPORT_SIZE ( 8                                   )  ,\
-    HID_USAGE       ( 0x10                                )  ,\
-    HID_INPUT        ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,\
-    HID_USAGE       ( 0x10                                )  ,\
-    HID_OUTPUT       ( HID_DATA | HID_ARRAY | HID_ABSOLUTE ) ,\
+    HID_LOGICAL_MIN  ( 0x00                               )  ,\
+    HID_LOGICAL_MAX_N( 0xff, 2                            )  ,\
+    HID_REPORT_SIZE  ( 8                                  )  ,\
+    HID_REPORT_COUNT ( LINK_REPORT_SIZE                   )  ,\
+    HID_USAGE        ( 0x30                               )  ,\
+    HID_INPUT        ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
+    HID_USAGE        ( 0x30                               )  ,\
+    HID_OUTPUT       ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
   HID_COLLECTION_END \
 
 // Host Status Descriptor Template (vendor page, feature report only, readable any time)

@@ -113,24 +113,12 @@ void tud_hid_set_report_cb(uint8_t instance,
                            uint8_t const *buffer,
                            uint16_t bufsize) {
 
-    /* We received a report on the config report ID */
-    if (instance == ITF_NUM_HID_VENDOR && report_id == REPORT_ID_VENDOR) {
-        /* Security - only if config mode is enabled are we allowed to do anything. While the report_id
-           isn't even advertised when not in config mode, security must always be explicit and never assume */
+    /* Every report on the DeskHop Link interface is a link report. It exists only in normal mode,
+       where config mode's interface 2 is the drive, but check explicitly anyway. */
+    if (instance == ITF_NUM_HID_LINK) {
         if (!global_state.config_mode_active)
-            return;
-
-        /* We insist on a fixed size packet. No overflows. */
-        if (bufsize != RAW_PACKET_LENGTH)
-            return;
-
-        uart_packet_t *packet = (uart_packet_t *) (buffer + START_LENGTH);
-
-        /* Only a certain packet types are accepted */
-        if (!validate_packet(packet))
-            return;
-
-        process_packet(packet, &global_state);
+            link_receive_report(&global_state, buffer, bufsize);
+        return;
     }
 
     /* LED reports use REPORT_ID_KEYBOARD, or 0 in boot protocol (no report ID byte). */
@@ -164,11 +152,13 @@ void tud_hid_set_report_cb(uint8_t instance,
 /* Invoked when device is mounted */
 void tud_mount_cb(void) {
     global_state.tud_connected = true;
+    link_reset();
 }
 
 /* Invoked when device is unmounted */
 void tud_umount_cb(void) {
     global_state.tud_connected = false;
+    link_reset();
 }
 
 #ifdef DH_DEBUG_CDC_FLASH

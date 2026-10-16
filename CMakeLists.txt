@@ -68,6 +68,8 @@ set(COMMON_SOURCES
   ${SRC_DIR}/led.c
   ${SRC_DIR}/uart.c
   ${SRC_DIR}/usb.c
+  ${SRC_DIR}/link.c
+  ${SRC_DIR}/link_codec.c
   ${SRC_DIR}/main.c
   ${SRC_DIR}/ramdisk.c
   ${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/dcd_pio_usb.c
@@ -107,11 +109,21 @@ set_property(SOURCE ${DISK_ASM} APPEND PROPERTY COMPILE_OPTIONS "-x" "assembler-
 
 add_executable(${binary} ${DISK_ASM})
 
+## Short commit hash for the DeskHop Link STATUS fw_tag (empty if git isn't available)
+execute_process(
+    COMMAND git rev-parse --short=7 HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    OUTPUT_VARIABLE GIT_SHORT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
 target_sources(${binary} PUBLIC ${COMMON_SOURCES})
-target_compile_definitions(${binary} 
+target_compile_definitions(${binary}
     PRIVATE
     VERSION_MAJOR=${VERSION_MAJOR}
     VERSION_MINOR=${VERSION_MINOR}
+    GIT_SHORT_SHA="${GIT_SHORT_SHA}"
     PIO_USB_USE_TINYUSB=${PIO_USE_TINYUSB}
     PIO_USB_DP_PIN_DEFAULT=${DP_PIN_DEFAULT}
     __disk_file_path__="${DISK_BIN}"

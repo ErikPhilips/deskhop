@@ -78,9 +78,6 @@ const uart_handler_t uart_handler[] = {
     {.type = WIPE_CONFIG_MSG, .handler = handle_wipe_config_msg},
     {.type = SAVE_CONFIG_MSG, .handler = handle_save_config_msg},
     {.type = REBOOT_MSG, .handler = handle_reboot_msg},
-    {.type = GET_VAL_MSG, .handler = handle_api_msgs},
-    {.type = GET_ALL_VALS_MSG, .handler = handle_api_read_all_msg},
-    {.type = SET_VAL_MSG, .handler = handle_api_msgs},
 
     /* Firmware */
     {.type = REQUEST_BYTE_MSG, .handler = handle_request_byte_msg},
@@ -89,7 +86,6 @@ const uart_handler_t uart_handler[] = {
 
     {.type = HEARTBEAT_MSG, .handler = handle_heartbeat_msg},
     {.type = HOST_STATUS_MSG, .handler = handle_host_status_msg},
-    {.type = PROXY_PACKET_MSG, .handler = handle_proxy_msg},
 };
 
 void process_packet(uart_packet_t *packet, device_t *state) {

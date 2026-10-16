@@ -47,22 +47,20 @@ uint8_t const desc_hid_report[] = {TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(RE
 
 uint8_t const desc_hid_report_relmouse[] = {TUD_HID_REPORT_DESC_MOUSEHELP(HID_REPORT_ID(REPORT_ID_RELMOUSE))};
 
-uint8_t const desc_hid_report_vendor[] = {TUD_HID_REPORT_DESC_VENDOR_CTRL(HID_REPORT_ID(REPORT_ID_VENDOR))};
+uint8_t const desc_hid_report_link[] = {TUD_HID_REPORT_DESC_LINK()};
 
 
 // Invoked when received GET HID REPORT DESCRIPTOR
 // Application return pointer to descriptor
 // Descriptor contents must exist long enough for transfer to complete
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
-    if (global_state.config_mode_active)
-        if (instance == ITF_NUM_HID_VENDOR)
-            return desc_hid_report_vendor;
-
     switch(instance) {
         case ITF_NUM_HID:
             return desc_hid_report;
         case ITF_NUM_HID_REL_M:
             return desc_hid_report_relmouse;
+        case ITF_NUM_HID_LINK: /* Only exists in normal mode */
+            return desc_hid_report_link;
         default:
             return desc_hid_report;
     }
@@ -93,7 +91,7 @@ char const *string_desc_arr[] = {
     "DeskHop Switch",           // 2: Product
     "0",                        // 3: Serials, should use chip ID
     "DeskHop Helper",           // 4: Mouse Helper Interface
-    "DeskHop Config",           // 5: Vendor Interface
+    "DeskHop Link",             // 5: Link Interface (helper app)
     "DeskHop Disk",             // 6: Disk Interface
 #ifdef DH_DEBUG
     "DeskHop Debug",            // 7: Debug Interface
@@ -107,7 +105,7 @@ enum {
     STRID_PRODUCT,
     STRID_SERIAL,
     STRID_MOUSE,
-    STRID_VENDOR,
+    STRID_LINK,
     STRID_DISK,
     STRID_DEBUG,
 };
@@ -164,29 +162,34 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 
 #define EPNUM_HID        0x81
 #define EPNUM_HID_REL_M  0x82
-#define EPNUM_HID_VENDOR 0x83
+
+#define EPNUM_LINK_OUT   0x07
+#define EPNUM_LINK_IN    0x87
 
 #define EPNUM_MSC_OUT    0x04
 #define EPNUM_MSC_IN     0x84
 
+/* Keyboard/mouse interfaces keep their 32-byte endpoints; CFG_TUD_HID_EP_BUFSIZE is 64 for the link. */
+#define HID_EP_SIZE 32
+
 #ifndef DH_DEBUG
 
-#define ITF_NUM_TOTAL 2
-#define ITF_NUM_TOTAL_CONFIG 4
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN)
-#define CONFIG_TOTAL_LEN_CFG (TUD_CONFIG_DESC_LEN + 3 * TUD_HID_DESC_LEN + TUD_MSC_DESC_LEN)
+#define ITF_NUM_TOTAL 3
+#define ITF_NUM_TOTAL_CONFIG 3
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_HID_INOUT_DESC_LEN)
+#define CONFIG_TOTAL_LEN_CFG (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_MSC_DESC_LEN)
 
 #else
-/* CDC uses 2 interfaces (control + data). In normal mode, place it right after
-   the 2 HID interfaces (at 2, 3). In config mode, place it after HID_VENDOR (2)
-   and MSC (3), so at 4, 5. */
-#define ITF_NUM_CDC 2
-#define ITF_NUM_CDC_CONFIG 4
-#define ITF_NUM_TOTAL 4
-#define ITF_NUM_TOTAL_CONFIG 6
+/* CDC uses 2 interfaces (control + data). In normal mode, place it after the
+   2 HID interfaces and the link (2), so at 3, 4. In config mode, place it after
+   MSC (2), so also at 3, 4. */
+#define ITF_NUM_CDC 3
+#define ITF_NUM_CDC_CONFIG 3
+#define ITF_NUM_TOTAL 5
+#define ITF_NUM_TOTAL_CONFIG 5
 
-#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_CDC_DESC_LEN)
-#define CONFIG_TOTAL_LEN_CFG (TUD_CONFIG_DESC_LEN + 3 * TUD_HID_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN)
+#define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_HID_INOUT_DESC_LEN + TUD_CDC_DESC_LEN)
+#define CONFIG_TOTAL_LEN_CFG (TUD_CONFIG_DESC_LEN + 2 * TUD_HID_DESC_LEN + TUD_MSC_DESC_LEN + TUD_CDC_DESC_LEN)
 
 #define EPNUM_CDC_NOTIF  0x85
 #define EPNUM_CDC_OUT    0x06
@@ -205,7 +208,7 @@ uint8_t const desc_configuration[] = {
                        HID_ITF_PROTOCOL_KEYBOARD,
                        sizeof(desc_hid_report),
                        EPNUM_HID,
-                       CFG_TUD_HID_EP_BUFSIZE,
+                       HID_EP_SIZE,
                        1),
 
     TUD_HID_DESCRIPTOR(ITF_NUM_HID_REL_M,
@@ -213,8 +216,18 @@ uint8_t const desc_configuration[] = {
                        HID_ITF_PROTOCOL_NONE,
                        sizeof(desc_hid_report_relmouse),
                        EPNUM_HID_REL_M,
-                       CFG_TUD_HID_EP_BUFSIZE,
+                       HID_EP_SIZE,
                        1),
+
+    // Interface number, string index, protocol, report descriptor len, EP Out & In address, size & polling interval
+    TUD_HID_INOUT_DESCRIPTOR(ITF_NUM_HID_LINK,
+                             STRID_LINK,
+                             HID_ITF_PROTOCOL_NONE,
+                             sizeof(desc_hid_report_link),
+                             EPNUM_LINK_OUT,
+                             EPNUM_LINK_IN,
+                             LINK_REPORT_SIZE,
+                             1),
 #ifdef DH_DEBUG
     // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
     TUD_CDC_DESCRIPTOR(
@@ -232,7 +245,7 @@ uint8_t const desc_configuration_config[] = {
                        HID_ITF_PROTOCOL_KEYBOARD,
                        sizeof(desc_hid_report),
                        EPNUM_HID,
-                       CFG_TUD_HID_EP_BUFSIZE,
+                       HID_EP_SIZE,
                        1),
 
     TUD_HID_DESCRIPTOR(ITF_NUM_HID_REL_M,
@@ -240,15 +253,7 @@ uint8_t const desc_configuration_config[] = {
                        HID_ITF_PROTOCOL_NONE,
                        sizeof(desc_hid_report_relmouse),
                        EPNUM_HID_REL_M,
-                       CFG_TUD_HID_EP_BUFSIZE,
-                       1),
-
-    TUD_HID_DESCRIPTOR(ITF_NUM_HID_VENDOR,
-                       STRID_VENDOR,
-                       HID_ITF_PROTOCOL_NONE,
-                       sizeof(desc_hid_report_vendor),
-                       EPNUM_HID_VENDOR,
-                       CFG_TUD_HID_EP_BUFSIZE,
+                       HID_EP_SIZE,
                        1),
 
     TUD_MSC_DESCRIPTOR(ITF_NUM_MSC,

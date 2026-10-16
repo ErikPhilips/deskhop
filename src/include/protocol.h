@@ -30,36 +30,9 @@ enum packet_type_e {
     SYSTEM_CONTROL_MSG   = 15,
     SAVE_CONFIG_MSG      = 18,
     REBOOT_MSG           = 19,
-    GET_VAL_MSG          = 20,
-    SET_VAL_MSG          = 21,
-    GET_ALL_VALS_MSG     = 22,
-    PROXY_PACKET_MSG     = 23,
+    /* 20-23 were the web config page's GET/SET/READ_ALL/PROXY messages, removed with the
+       config channel. Keep the numbers unused. */
     REQUEST_BYTE_MSG     = 24,
     RESPONSE_BYTE_MSG    = 25,
     HOST_STATUS_MSG      = 26,
 };
-
-typedef enum {
-    UINT8 = 0,
-    UINT16 = 1,
-    UINT32 = 2,
-    UINT64 = 3,
-    INT8 = 4,
-    INT16 = 5,
-    INT32 = 6,
-    INT64 = 7,
-    BOOL  = 8
-} type_e;
-
-/*==============================================================================
- *  API Request Data Structure, defines offset within struct, length, type,
-    write permissions and packet ID type (index)
- *==============================================================================*/
-
-typedef struct {
-    uint32_t idx;
-    bool readonly;
-    type_e type;
-    uint32_t len;
-    size_t offset;
-} field_map_t;

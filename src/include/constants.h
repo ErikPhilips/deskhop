@@ -24,8 +24,8 @@
 
 #define ITF_NUM_HID        0
 #define ITF_NUM_HID_REL_M  1
-#define ITF_NUM_HID_VENDOR 2
-#define ITF_NUM_MSC        3
+#define ITF_NUM_HID_LINK   2 // Normal mode only: DeskHop Link (helper app <-> box)
+#define ITF_NUM_MSC        2 // Config mode only: the DESKHOP drive
 
 /*==============================================================================
  *  Mouse Modes

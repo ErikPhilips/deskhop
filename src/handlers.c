@@ -304,57 +304,9 @@ void handle_reboot_msg(uart_packet_t *packet, device_t *state) {
     reboot();
 }
 
-/* Decapsulate and send to the other box */
-void handle_proxy_msg(uart_packet_t *packet, device_t *state) {
-    /* Block packets from being proxied if config mode isn't active. */
-    if (!state->config_mode_active)
-        return;
-
-    queue_packet(&packet->data[1], (enum packet_type_e)packet->data[0], PACKET_DATA_LENGTH - 1);
-}
-
 /* Process relative mouse command */
 void handle_toggle_gaming_msg(uart_packet_t *packet, device_t *state) {
     state->gaming_mode = packet->data[0];
-}
-
-/* Process api communication messages */
-void handle_api_msgs(uart_packet_t *packet, device_t *state) {
-    uint8_t value_idx = packet->data[0];
-    const field_map_t *map = get_field_map_entry(value_idx);
-
-    /* If we don't have a valid map entry, return immediately */
-    if (map == NULL)
-        return;
-
-    /* Create a pointer to the offset into the structure we need to access */
-    uint8_t *ptr = (((uint8_t *)&global_state) + map->offset);
-
-    if (packet->type == SET_VAL_MSG) {
-        /* Not allowing writes to objects defined as read-only */
-        if (map->readonly)
-            return;
-
-        memcpy(ptr, &packet->data[1], map->len);
-    }
-    else if (packet->type == GET_VAL_MSG) {
-        uart_packet_t response = {.type=GET_VAL_MSG, .data={[0] = value_idx}};
-        memcpy(&response.data[1], ptr, map->len);
-        queue_cfg_packet(&response, state);
-    }
-
-    /* With each GET/SET message, we reset the configuration mode timeout */
-    reset_config_timer(state);
-}
-
-/* Handle the "read all" message by calling our "read one" handler for each type */
-void handle_api_read_all_msg(uart_packet_t *packet, device_t *state) {
-    uart_packet_t result = {.type=GET_VAL_MSG};
-
-    for (int i = 0; i < get_field_map_length(); i++) {
-        result.data[0] = get_field_map_index(i)->idx;
-        handle_api_msgs(&result, state);
-    }
 }
 
 /* Process request packet and create a response */

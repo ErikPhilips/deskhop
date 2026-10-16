@@ -37,6 +37,7 @@
 #include "flash.h"
 #include "handlers.h"
 #include "keyboard.h"
+#include "link.h"
 #include "mouse.h"
 #include "packet.h"
 #include "pinout.h"

@@ -127,7 +127,8 @@ extern int dh_debug_printf(const char *__restrict __format, ...);
  *==============================================================================*/
 
 // HID endpoint buffer size (must be large enough for report ID + data).
-#define CFG_TUD_HID_EP_BUFSIZE 32
+// 64 for the DeskHop Link's 64-byte reports; the other HID interfaces still declare 32-byte endpoints.
+#define CFG_TUD_HID_EP_BUFSIZE 64
 
 // MSC endpoint buffer size.
 #define CFG_TUD_MSC_EP_BUFSIZE 512
