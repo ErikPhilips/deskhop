@@ -152,6 +152,18 @@ pico_add_extra_outputs(${binary})
 # For internal firmware use, to simplify comparison: 0.72 -> 172
 math(EXPR FIRMWARE_VERSION "${VERSION_MAJOR} * 1000 + ${VERSION_MINOR} + 100")
 
+# Fork builds on GitHub Actions add the workflow's run number (0.80 run 25 -> 205),
+# so every build is newer than the last and one copy on the DESKHOP drive also
+# updates the other board (it only takes a newer version). Stored as u16; local
+# builds keep the plain number.
+if(DEFINED ENV{GITHUB_RUN_NUMBER})
+    math(EXPR FIRMWARE_VERSION "${FIRMWARE_VERSION} + $ENV{GITHUB_RUN_NUMBER}")
+    if(FIRMWARE_VERSION GREATER 65535)
+        message(FATAL_ERROR "FIRMWARE_VERSION ${FIRMWARE_VERSION} does not fit in 16 bits")
+    endif()
+endif()
+message(STATUS "Firmware version number: ${FIRMWARE_VERSION}")
+
 ## Post-Build Commands
 add_custom_command(
     TARGET ${binary} POST_BUILD
