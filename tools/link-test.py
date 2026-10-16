@@ -44,9 +44,12 @@ class Link:
         self.dev = hid.device()
         self.dev.open_path(path)
         self.rx = dl.Reassembler()
-        # Drop anything stale (HidD_FlushQueue's job in the app)
-        while self.dev.read(dl.REPORT_SIZE, 0):
+        # Drop anything stale (HidD_FlushQueue's job in the app).
+        # Non-blocking for the flush: in cython-hidapi, read(n, 0) blocks forever.
+        self.dev.set_nonblocking(1)
+        while self.dev.read(dl.REPORT_SIZE):
             pass
+        self.dev.set_nonblocking(0)
 
     def close(self):
         self.dev.close()
