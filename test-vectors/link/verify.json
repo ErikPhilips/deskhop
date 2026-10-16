@@ -183,29 +183,54 @@
           "pending_after": "B"
         },
         {
-          "note": "first frame under B confirms it",
+          "note": "another HELLO: D's keys replace B's as pending",
+          "event": "pending",
+          "session": "D",
+          "k_h2b": "a0b0a7b36f3bbbe420dcd717804c2a35ddb6b11af8dc0e7f91f56dd726cf2cb9",
+          "confirmed_after": "A",
+          "pending_after": "D"
+        },
+        {
+          "note": "B was replaced, so its frame is dropped",
           "frame": "11180000000000000000002bb022637ea3af9800942ca183de606a",
+          "expect": "drop",
+          "why": "bad tag",
+          "confirmed_after": "A",
+          "pending_after": "D"
+        },
+        {
+          "note": "A still works while D is pending",
+          "frame": "1118000600000000000000db3e4b52b147974b26f695dc12e6468c",
+          "expect": "accept",
+          "counter": 6,
+          "message": "",
+          "confirmed_after": "A",
+          "pending_after": "D"
+        },
+        {
+          "note": "first frame under D confirms it",
+          "frame": "1118000000000000000000476c912c56ebc5cd106c6cf47a4802a8",
           "expect": "accept",
           "counter": 0,
           "message": "",
-          "confirmed_after": "B",
+          "confirmed_after": "D",
           "pending_after": null
         },
         {
-          "note": "A is gone once B is confirmed",
-          "frame": "1118000600000000000000db3e4b52b147974b26f695dc12e6468c",
+          "note": "A is gone once D is confirmed",
+          "frame": "1118000700000000000000f00f200d7b7d742d9fcbb17cef54976d",
           "expect": "drop",
           "why": "bad tag",
-          "confirmed_after": "B",
+          "confirmed_after": "D",
           "pending_after": null
         },
         {
-          "note": "B carries on",
-          "frame": "201b000100000000000000c712619d1a56cc576f059f18cc247eb2010080",
+          "note": "D carries on",
+          "frame": "201b0001000000000000008dfadba6e580f7682d9c099dfbe029ac010080",
           "expect": "accept",
           "counter": 1,
           "message": "010080",
-          "confirmed_after": "B",
+          "confirmed_after": "D",
           "pending_after": null
         }
       ]

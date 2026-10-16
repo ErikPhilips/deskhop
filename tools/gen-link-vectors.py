@@ -93,6 +93,8 @@ HELPER_NONCE_1 = label_bytes("helper nonce 1", 16)
 BOARD_NONCE_1 = label_bytes("board nonce 1", 16)
 HELPER_NONCE_2 = label_bytes("helper nonce 2", 16)
 BOARD_NONCE_2 = label_bytes("board nonce 2", 16)
+HELPER_NONCE_3 = label_bytes("helper nonce 3", 16)
+BOARD_NONCE_3 = label_bytes("board nonce 3", 16)
 
 CODES_1 = ["KDHP", "WXRT", "ZBMA"]      # attempts 1-3 for pairing set 1
 CODES_2 = ["QEFG", "NUVY", "CJSK"]
@@ -142,6 +144,7 @@ PAIR_2, KEYS_2 = pairing_set(HELPER_2, BOARD_2, CODES_2)
 SESSION_A, (H2B_A, B2H_A) = session_set("A", KEYS_1.k_pair, HELPER_NONCE_1, BOARD_NONCE_1)
 SESSION_B, (H2B_B, B2H_B) = session_set("B", KEYS_1.k_pair, HELPER_NONCE_2, BOARD_NONCE_2)
 SESSION_C, _ = session_set("C", KEYS_2.k_pair, HELPER_NONCE_1, BOARD_NONCE_1)
+SESSION_D, (H2B_D, B2H_D) = session_set("D", KEYS_1.k_pair, HELPER_NONCE_3, BOARD_NONCE_3)
 
 STATUS_FIELDS = {
     "corr": 0x7A1C0E01, "proto": dl.PROTO_VERSION, "fw_tag": "0.78-1f45232", "schema": 1,
@@ -192,6 +195,7 @@ def build_framing():
     too_long_frame = bytes([0x42]) + (dl.MAX_LEN + 1).to_bytes(2, "little") + pattern(dl.MAX_LEN + 1)
     too_long = dl.split_reports(too_long_frame)
     max_frame = dl.encode_frame(0x42, pattern(dl.MAX_LEN, 9))
+    bad_flag = bytes([2]) + fb + bytes(dl.REPORT_PAYLOAD - len(fb))
 
     decode = [
         ("single-report frame", b, [fb]),
@@ -208,6 +212,8 @@ def build_framing():
         ("start flag with type 0x00 is dropped", [type0] + b, [fb]),
         ("len 1025 is malformed; its continuation reports are then orphans", too_long + b, [fb]),
         ("len 1024 is accepted", dl.split_reports(max_frame), [max_frame]),
+        ("flag 2 drops the report and the frame in progress; the rest of it is then orphaned",
+         a[:1] + [bad_flag] + a[1:] + b, [fb]),
     ]
 
     types = []
@@ -234,6 +240,29 @@ def build_framing():
 # ---------------------------------------------------------------------------
 # kdf.json
 
+P256_P = 0xFFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF
+
+
+def invalid_public_keys():
+    """helper_pub values the box must refuse (PAIR_REQUEST dropped silently)."""
+    good = dl.public_bytes(HELPER_1)
+    x, y = int.from_bytes(good[:32], "big"), int.from_bytes(good[32:], "big")
+    cases = [
+        ("y off by one: not on the curve", x, (y + 1) % P256_P),
+        ("all zeros (point at infinity has no affine form)", 0, 0),
+        ("x = p, out of field range", P256_P, y),
+    ]
+    out = []
+    for name, cx, cy in cases:
+        pub = cx.to_bytes(32, "big") + cy.to_bytes(32, "big")
+        try:
+            dl.load_public(pub)
+        except ValueError:
+            out.append({"name": name, "pub": hx(pub)})
+            continue
+        raise AssertionError("expected an invalid key: " + name)
+    return out
+
 def build_kdf():
     return {
         "about": "P-256 ECDH and HKDF-SHA256 derivations. Pairing set 1 and sessions A and B "
@@ -243,7 +272,8 @@ def build_kdf():
             "id": dl.INFO_ID.decode(), "h2b": dl.INFO_H2B.decode(), "b2h": dl.INFO_B2H.decode(),
         },
         "pairing": [dict({"name": "1"}, **PAIR_1), dict({"name": "2"}, **PAIR_2)],
-        "session": [SESSION_A, SESSION_B, SESSION_C],
+        "session": [SESSION_A, SESSION_B, SESSION_C, SESSION_D],
+        "invalid_public_keys": invalid_public_keys(),
     }
 
 
@@ -269,8 +299,9 @@ def build_messages():
             "code_ct": bytes.fromhex(PAIR_1["attempts"][0]["code_ct"])}),
         message_record(dl.PAIR_RESULT, {"corr": 0x7A1C0E03, "result": 0, "key_id": KEYS_1.key_id}),
         message_record(dl.PAIR_RESULT, {"corr": 0x7A1C0E03, "result": 2, "key_id": bytes(8)}),
+        message_record(dl.PAIR_RESULT, {"corr": 0x7A1C0E05, "result": 1, "key_id": bytes(8)}),
         message_record(dl.HELLO, {
-            "corr": 0x7A1C0E04, "proto": dl.PROTO_VERSION, "os": 1, "app_version": 0x0100,
+            "corr": 0x7A1C0E04, "proto": dl.PROTO_VERSION, "os": 1, "app_version": dl.app_version(1, 0),
             "key_id": KEYS_1.key_id, "helper_nonce": HELPER_NONCE_1}),
         message_record(dl.HELLO_REFUSED, {"corr": 0x7A1C0E04, "reason": 1}),
         signed(dl.HELLO_ACK, {"corr": 0x7A1C0E04, "proto": dl.PROTO_VERSION,
@@ -301,7 +332,37 @@ def build_messages():
                  "no body yet). Signed ones use session A's keys and the counter given.",
         "keys": {"session": "A", "k_h2b": hx(H2B_A), "k_b2h": hx(B2H_A)},
         "messages": msgs,
+        "malformed": malformed_bodies(),
     }
+
+
+def malformed_bodies():
+    """Message bodies that don't match their type's layout: silent drop (signed ones after
+    the tag check). `body` is the message body only, without the auth prefix."""
+    status = dl.encode_body(dl.STATUS, STATUS_FIELDS)
+    status_no_devs = dl.encode_body(dl.STATUS, dict(STATUS_FIELDS, devices=[]))
+    cases = [
+        ("STATUS_GET one byte long", dl.STATUS_GET, bytes(5)),
+        ("STATUS_GET one byte short", dl.STATUS_GET, bytes(3)),
+        ("HEARTBEAT with a body", dl.HEARTBEAT, bytes(1)),
+        ("EDGE_HIT one byte long", dl.EDGE_HIT, bytes([1, 0, 0x80, 0])),
+        ("EDGE_HIT one byte short", dl.EDGE_HIT, bytes([1, 0])),
+        ("HELLO one byte short", dl.HELLO, bytes(32)),
+        ("UPLOAD_DATA without its fixed fields", dl.UPLOAD_DATA, bytes(7)),
+        ("READ_DATA with 513 data bytes", dl.READ_DATA, bytes(8 + 513)),
+        ("STATUS device list cut short", dl.STATUS, status[:-3]),
+        ("STATUS with a trailing byte", dl.STATUS, status_no_devs + bytes(1)),
+    ]
+    out = []
+    for name, type_, body in cases:
+        try:
+            dl.decode_body(type_, body)
+        except dl.MalformedBody:
+            out.append({"name": name, "type": "0x%02x" % type_, "type_name": dl.NAMES[type_],
+                        "body": hx(body)})
+            continue
+        raise AssertionError("expected malformed: " + name)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -373,14 +434,24 @@ def build_verify():
     slot.confirmed = dl.Receiver("box", H2B_A)
     slot.confirmed.highest = 4
     slot.set_pending(H2B_B)
-    names = {H2B_A: "A", H2B_B: "B"}
+    names = {H2B_A: "A", H2B_B: "B", H2B_D: "D"}
     pending_steps = []
     for note, frame, expect in [
         ("old session still works while B is pending", hb(H2B_A, 5), "accept"),
-        ("first frame under B confirms it", hb(H2B_B, 0), "accept"),
-        ("A is gone once B is confirmed", hb(H2B_A, 6), "drop"),
-        ("B carries on", dl.encode_signed_frame(dl.EDGE_HIT, H2B_B, 1, edge), "accept"),
+        ("another HELLO: D's keys replace B's as pending", ("pending", H2B_D), None),
+        ("B was replaced, so its frame is dropped", hb(H2B_B, 0), "drop"),
+        ("A still works while D is pending", hb(H2B_A, 6), "accept"),
+        ("first frame under D confirms it", hb(H2B_D, 0), "accept"),
+        ("A is gone once D is confirmed", hb(H2B_A, 7), "drop"),
+        ("D carries on", dl.encode_signed_frame(dl.EDGE_HIT, H2B_D, 1, edge), "accept"),
     ]:
+        if isinstance(frame, tuple):
+            slot.set_pending(frame[1])
+            pending_steps.append({"note": note, "event": "pending", "session": names[frame[1]],
+                                  "k_h2b": hx(frame[1]),
+                                  "confirmed_after": names[slot.confirmed.key],
+                                  "pending_after": names[slot.pending.key]})
+            continue
         r = slot.receive(frame)
         assert (r is not None) == (expect == "accept"), note
         step = {"note": note, "frame": hx(frame), "expect": expect}
@@ -450,7 +521,7 @@ def build_transcript():
         "same handshake, new code %s; Erik types it" % a2["letters"])
     add(dl.PAIR_RESULT, {"corr": corr_pair, "result": 0, "key_id": KEYS_1.key_id},
         "both sides store k_pair")
-    add(dl.HELLO, {"corr": corr_hello, "proto": dl.PROTO_VERSION, "os": 1, "app_version": 0x0100,
+    add(dl.HELLO, {"corr": corr_hello, "proto": dl.PROTO_VERSION, "os": 1, "app_version": dl.app_version(1, 0),
                    "key_id": KEYS_1.key_id, "helper_nonce": HELPER_NONCE_1})
     add(dl.HELLO_ACK, {"corr": corr_hello, "proto": dl.PROTO_VERSION, "board_nonce": BOARD_NONCE_1,
                        "computer": 0, "board_type": 1, "layout": 1},

@@ -36,8 +36,7 @@ COUNTER_SIZE = 8
 TAG_SIZE = 16
 AUTH_SIZE = COUNTER_SIZE + TAG_SIZE
 
-# protocol.md doesn't give the value of the `proto` field; 1 matches the
-# "deskhop-link/1" KDF labels.
+# `proto` in HELLO, HELLO_ACK and STATUS; changes together with the "deskhop-link/1" labels.
 PROTO_VERSION = 1
 
 
@@ -104,8 +103,7 @@ class Reassembler:
                 return None
             return self._take(payload)
 
-        # protocol.md defines only 0 and 1. Not decided: the reference drops the report and
-        # any frame in progress. No vector depends on this.
+        # Any other flag: drop the report and any frame in progress.
         self._buf = None
         self.last_drop = "bad flag"
         return None
@@ -212,6 +210,13 @@ def band(type_):
 def is_signed(type_):
     b = band(type_)
     return b is not None and b.signed
+
+
+def wanted_by(role, type_):
+    """True if `role` ("box" or "app") may receive this type. Any type in the wrong
+    direction, signed or not, is dropped; so are padding, reserved and undefined types."""
+    want = H2B if role == "box" else B2H
+    return band(type_) is not None and DIRECTION.get(type_) == want
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +351,11 @@ def _decode_status(body):
     return f
 
 
+def app_version(major, minor):
+    """HELLO app_version: major << 8 | minor."""
+    return (major << 8) | minor
+
+
 # ---------------------------------------------------------------------------
 # Signed frames
 
@@ -398,9 +408,6 @@ class Receiver:
         self.highest = None         # nothing accepted yet: any counter is newer
         self.last_drop = None
 
-    def _wanted_direction(self):
-        return H2B if self.role == "box" else B2H
-
     def check(self, frame):
         """Verify without recording. Returns (counter, message) or None and sets last_drop."""
         self.last_drop = None
@@ -408,7 +415,7 @@ class Receiver:
         if not is_signed(type_):
             self.last_drop = "not a signed type"
             return None
-        if DIRECTION.get(type_) != self._wanted_direction():
+        if not wanted_by(self.role, type_):
             self.last_drop = "wrong direction"
             return None
         try:
@@ -454,6 +461,7 @@ class BoxSessionSlot:
         self.last_drop = None
 
     def set_pending(self, k_h2b):
+        """A HELLO_ACK went out. Replaces any keys already pending; the confirmed session stays."""
         self.pending = Receiver("box", k_h2b)
 
     def receive(self, frame):
@@ -528,7 +536,8 @@ def public_bytes(priv_or_pub):
 
 
 def load_public(pub64):
-    """64-byte public key -> key object. Raises ValueError if the point isn't on P-256."""
+    """64-byte public key -> key object. Raises ValueError if the point isn't on P-256
+    (the box drops such a PAIR_REQUEST silently)."""
     if len(pub64) != PUBLIC_KEY_LEN:
         raise ValueError("public key must be 64 bytes")
     x = int.from_bytes(pub64[:32], "big")

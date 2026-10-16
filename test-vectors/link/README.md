@@ -26,18 +26,17 @@ python -m unittest discover -s tools -p "test_link*.py" -v
 
 | File | Holds |
 |--|--|
-| `framing.json` | `encode`: frames and the reports they split into (empty, exact fits, one-byte spill, max len 1024). `decode`: report streams and the frames that come out, covering every resync rule. `bands` / `types`: the type table. |
-| `kdf.json` | Two pairing sets: fixed private scalars, public keys, `ss`, `th`, the HKDF PRK and `k_pair`, `key_id`, and pad, code, code_ct for attempts 1–3. Three session sets: `k_h2b` / `k_b2h` from `k_pair` and the two nonces. |
-| `messages.json` | At least one vector per message type: fields, body, frame, reports; signed ones with key, counter and tag (session A keys). FOREGROUND_APP (0x22) is reserved and has none. |
-| `verify.json` | Receive-side rules for signed frames: replay, stale and gap-ahead counters, a bad tag not recording its counter, altered body or counter, wrong key, wrong direction, short len; and a pending session being confirmed on the box. |
+| `framing.json` | `encode`: frames and the reports they split into (empty, exact fits, one-byte spill, max len 1024). `decode`: report streams and the frames that come out, covering every resync rule, including a flag other than 0 or 1. `bands` / `types`: the type table; a type is received only in its own direction. |
+| `kdf.json` | Two pairing sets: fixed private scalars, public keys, `ss`, `th`, the HKDF PRK and `k_pair`, `key_id`, and pad, code, code_ct for attempts 1–3. Four session sets: `k_h2b` / `k_b2h` from `k_pair` and the two nonces. `invalid_public_keys`: helper_pub values the box must refuse. |
+| `messages.json` | At least one vector per message type: fields, body, frame, reports; signed ones with key, counter and tag (session A keys). FOREGROUND_APP (0x22) is reserved and has none. `malformed`: message bodies that don't match their type's layout and are dropped. |
+| `verify.json` | Receive-side rules for signed frames: replay, stale and gap-ahead counters, a bad tag not recording its counter, altered body or counter, wrong key, wrong direction, short len; and pending sessions on the box, one replaced by a newer HELLO before the other is confirmed. Steps with `"event": "pending"` mean a HELLO_ACK went out with those keys. |
 | `transcript.json` | One computer from first contact: STATUS, Get configuration, pairing with one wrong code, HELLO / HELLO_ACK / HEARTBEAT confirming the session, edge hit and warp, an upload, heartbeat, SESSION_END. Each side's fixed inputs are listed separately so an implementation can replay its half. |
 
 Pairing set 1, sessions A and B, the STATUS sample and the blobs are shared between files.
 
-## Values the protocol page doesn't fix
+## Values
 
-These are what the reference uses; they'll change if protocol.md decides otherwise.
-
-- `proto` = 1 (matches the `deskhop-link/1` labels).
-- `app_version` 0x0100 and `schema` 1 are sample values, not a format.
+- `proto` = 1, as protocol.md fixes it.
+- `app_version` is `major << 8 | minor`; the vectors use 1.0 (0x0100).
+- `schema` 1 is a sample value.
 - CRC32 is the standard reflected CRC-32 (zlib, same as the firmware's `calc_crc32`).

@@ -106,6 +106,29 @@
       "salt": "31233010178b1230df9c3a0f8a5ee3c72566fdacf0e7f29ab9d7f524ee0324fd",
       "k_h2b": "42d172a341860240fc4039f2ed9a89ae949ec3e3198c0bb7d2f07e0e6329a81e",
       "k_b2h": "2f9da44817768d7ac7a78f5a28f805de261b8d36aad59ce07c731e945f43fd48"
+    },
+    {
+      "name": "D",
+      "k_pair": "09829f375b68046f5aaf1c76afec68cf6079ec72657391fb70c6e3db8fe7be76",
+      "helper_nonce": "66396b83197c5bd9df4359451382843a",
+      "board_nonce": "e4bafce2cc5f3804bdbd106382f32914",
+      "salt": "66396b83197c5bd9df4359451382843ae4bafce2cc5f3804bdbd106382f32914",
+      "k_h2b": "a0b0a7b36f3bbbe420dcd717804c2a35ddb6b11af8dc0e7f91f56dd726cf2cb9",
+      "k_b2h": "0fc76a8b560bfca8f772e79de5317764e0c36583872c45f70414b0fc0a583c4f"
+    }
+  ],
+  "invalid_public_keys": [
+    {
+      "name": "y off by one: not on the curve",
+      "pub": "b9d3eb212ad713c47f899f88741a48f0fbba4dcc14c16a53525471c0727686ab8521fc1cc2bb9cbe57071405bb349c4d3e646607d449bddd419d7537dc0a0db9"
+    },
+    {
+      "name": "all zeros (point at infinity has no affine form)",
+      "pub": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "x = p, out of field range",
+      "pub": "ffffffff00000001000000000000000000000000ffffffffffffffffffffffff8521fc1cc2bb9cbe57071405bb349c4d3e646607d449bddd419d7537dc0a0db8"
     }
   ]
 }

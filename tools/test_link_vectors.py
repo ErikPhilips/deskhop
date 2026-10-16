@@ -109,6 +109,13 @@ class Framing(unittest.TestCase):
                 self.assertEqual(dl.DIRECTION[t], by_type[t]["dir"])
                 self.assertEqual(dl.NAMES[t], by_type[t]["name"])
 
+    def test_direction(self):
+        """Any type in the wrong direction is dropped, signed or not."""
+        dirs = {int(t["type"], 16): t["dir"] for t in self.v["types"]}
+        for t in range(256):
+            self.assertEqual(dl.wanted_by("box", t), dirs.get(t) == "h2b", hex(t))
+            self.assertEqual(dl.wanted_by("app", t), dirs.get(t) == "b2h", hex(t))
+
 
 class Kdf(unittest.TestCase):
     v = load("kdf.json")
@@ -153,6 +160,15 @@ class Kdf(unittest.TestCase):
                 self.assertEqual(dl.derive_session_keys(k_pair, hn, bn), (b(s["k_h2b"]), b(s["k_b2h"])))
                 self.assertEqual(lib_hkdf(k_pair, hn + bn, b"deskhop-link/1 h2b"), b(s["k_h2b"]))
                 self.assertEqual(lib_hkdf(k_pair, hn + bn, b"deskhop-link/1 b2h"), b(s["k_b2h"]))
+
+    def test_invalid_public_keys(self):
+        board = dl.private_key_from_scalar(b(self.v["pairing"][0]["board_priv"]))
+        for k in self.v["invalid_public_keys"]:
+            with self.subTest(k["name"]):
+                with self.assertRaises(ValueError):
+                    dl.load_public(b(k["pub"]))
+                with self.assertRaises(ValueError):
+                    dl.ecdh(board, b(k["pub"]))
 
     def test_alphabet(self):
         self.assertEqual(len(dl.CODE_ALPHABET), 23)
@@ -220,6 +236,16 @@ class Messages(unittest.TestCase):
             expect = fixed + sum(8 + len(d["name"].encode("utf-8")) for d in f["devices"])
             self.assertEqual(len(body), expect)
 
+    def test_malformed(self):
+        for m in self.v["malformed"]:
+            with self.subTest(m["name"]):
+                with self.assertRaises(dl.MalformedBody):
+                    dl.decode_body(int(m["type"], 16), b(m["body"]))
+
+    def test_app_version(self):
+        self.assertEqual(dl.app_version(1, 0), 0x0100)
+        self.assertEqual(dl.app_version(2, 13), 0x020D)
+
     def test_strict_lengths(self):
         with self.assertRaises(dl.MalformedBody):
             dl.decode_body(dl.EDGE_HIT, bytes(4))
@@ -248,6 +274,12 @@ class Verify(unittest.TestCase):
                 receive = rx.accept
             for step in sc["steps"]:
                 with self.subTest(sc["name"] + ": " + step["note"]):
+                    if step.get("event") == "pending":
+                        slot.set_pending(b(step["k_h2b"]))
+                        names[b(step["k_h2b"])] = step["session"]
+                        self.assertEqual((names[slot.confirmed.key], names[slot.pending.key]),
+                                         (step["confirmed_after"], step["pending_after"]))
+                        continue
                     r = receive(b(step["frame"]))
                     if step["expect"] == "accept":
                         self.assertEqual(r, (step["counter"], b(step["message"])))
